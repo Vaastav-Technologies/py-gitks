@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gitks"
+version = "0.0.0dev1"
+description = "A keyserver for GPG/PGP keys implemented on git and pure python."
+requires-python = ">=3.12"
+readme = "README.md"
+authors = [
+    { name = "Suhas Krishna Srivastava", email = "suhas.srivastava@vaastav.tech" }
+]
+maintainers = [
+    { name = "Suhas Krishna Srivastava", email = "suhas.srivastava@vaastav.tech" }
+]
+keywords = [
+    'keyserver', 'keyservers', 'key-server', 'key', 'git', 'vcs', 'library', 'version control', 'git', 'pgp', 'gnupg',
+    'gpg', 'gnupg2', 'gnupg-2'
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: System Administrators",
+    "Topic :: Education",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Version Control",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed",
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = [
+    "python-gnupg",
+    "gitbolt == 0.0.0dev2"
+]
+
+[dependency-groups]
+dev = ["mypy", "ruff"]
+doc = ['sphinx', 'sphinx-argparse']
+test = ['pytest', 'coverage']
+multitest = ['tox']
+
+[project.scripts]
+gitks = "gitks.cli.__main__:main_cli"
+
+[project.urls]
+homepage = "https://github.com/Vaastav-Technologies/py-gitks"
+source = "https://github.com/Vaastav-Technologies/py-gitks"
+issues = "https://github.com/Vaastav-Technologies/py-gitks/issues"
+
+[tool.setuptools.packages.find]
+where = ['src']
