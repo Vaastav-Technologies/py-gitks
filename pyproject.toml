@@ -61,3 +61,9 @@ issues = "https://github.com/Vaastav-Technologies/py-gitks/issues"
 
 [tool.setuptools.packages.find]
 where = ['src']
+
+[[tool.mypy.overrides]]
+# python-gnupg currently has no py.typed or stubs installed
+# so let mypy try to best make sense of the data-types for python-gnupg package
+module = ["gnupg.*"]
+follow_untyped_imports = true

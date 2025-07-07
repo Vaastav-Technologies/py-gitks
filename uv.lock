@@ -161,10 +161,23 @@ wheels = [
 ]
 
 [[package]]
+name = "gitbolt"
+version = "0.0.0.dev2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "vt-err-hndlr" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e4/63/699ee3f90cf55c51264f3ca28683e5c7a23fcdb593b5c57e8968d888cd70/gitbolt-0.0.0.dev2.tar.gz", hash = "sha256:e5ff2c499b6f1eab04335d213a405b6843d98302bf7ee47edd71d716f3ac311b", size = 38442, upload-time = "2025-07-05T16:59:54.317Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b4/2d/7c8741f1a456aa831fd00bd476fac8bac4554144c717a3b35ff064898f72/gitbolt-0.0.0.dev2-py3-none-any.whl", hash = "sha256:8b9699f84c8ea5f095d69382d0f3e7ac33de783ffc8cb19197b75349b18da0de", size = 42602, upload-time = "2025-07-05T16:59:52.898Z" },
+]
+
+[[package]]
 name = "gitks"
-version = "0.0.0"
+version = "0.0.0.dev1"
 source = { editable = "." }
 dependencies = [
+    { name = "gitbolt" },
     { name = "python-gnupg" },
 ]
 
@@ -186,7 +199,10 @@ test = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "python-gnupg" }]
+requires-dist = [
+    { name = "gitbolt", specifier = "==0.0.0.dev2" },
+    { name = "python-gnupg" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -600,4 +616,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/56/2c/444f465fb2c65f40c3a104fd0c495184c4f2336d65baf398e3c75d72ea94/virtualenv-20.31.2.tar.gz", hash = "sha256:e10c0a9d02835e592521be48b332b6caee6887f332c111aa79a09b9e79efc2af", size = 6076316, upload-time = "2025-05-08T17:58:23.811Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f3/40/b1c265d4b2b62b58576588510fc4d1fe60a86319c8de99fd8e9fec617d2c/virtualenv-20.31.2-py3-none-any.whl", hash = "sha256:36efd0d9650ee985f0cad72065001e66d49a6f24eb44d98980f630686243cf11", size = 6057982, upload-time = "2025-05-08T17:58:21.15Z" },
+]
+
+[[package]]
+name = "vt-commons"
+version = "0.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/72/45416f5dc93ede3ae1f48eb1cae907713fbe6e0954d67d58ba9065d2d08f/vt_commons-0.0.1.tar.gz", hash = "sha256:6d7b7aebf0e420a3485294755615fdacaeb23054997f5d4577c5ee211d0c2413", size = 17480, upload-time = "2025-06-30T18:37:31.281Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/79/f1d7fe7284b1a0435c5334d42b218f96314ab974e307bb44d40e3b86b0dc/vt_commons-0.0.1-py3-none-any.whl", hash = "sha256:8dca36f978752a5a8c887b692c1b4e3f2754c514e865b38bac4c59ad5c2fed92", size = 21148, upload-time = "2025-06-30T18:37:30.207Z" },
+]
+
+[[package]]
+name = "vt-err-hndlr"
+version = "0.0.0.dev1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "vt-commons" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/83/de/10669102375a72287a0006c39199ffd409de233e05d430d4b1cc7a019779/vt_err_hndlr-0.0.0.dev1.tar.gz", hash = "sha256:6d2694a788646c26a69b60754e17d8cf93624124710754f408fc75cc88436294", size = 18912, upload-time = "2025-07-02T14:45:22.682Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/bc/d08c634ce54edd9066194d778a8fd3ed57bb66158ae37a25561c9c5eb05f/vt_err_hndlr-0.0.0.dev1-py3-none-any.whl", hash = "sha256:5ebfe9880e8d32b2a8dbec39195a1b6ae6d74ef22f314290ac81fbda2efe3c6d", size = 20997, upload-time = "2025-07-02T14:45:21.24Z" },
 ]
