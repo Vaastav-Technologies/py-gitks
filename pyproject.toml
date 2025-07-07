@@ -48,7 +48,7 @@ dependencies = [
 [dependency-groups]
 dev = ["mypy", "ruff"]
 doc = ['sphinx', 'sphinx-argparse']
-test = ['pytest', 'coverage']
+test = ['pytest', 'pytest-cov']
 multitest = ['tox']
 
 [project.scripts]
