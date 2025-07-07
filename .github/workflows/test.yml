@@ -31,8 +31,7 @@ jobs:
       - name: 🧪 Run Doctests and Coverage
         with:
           verbose: true
-        run: |
-          pytest --cov --cov-branch --cov-report=xml --doctest-modules .
+        run: pytest --cov --cov-branch --cov-report=xml --doctest-modules .
 
       - name: 📈 Upload to Codecov
         uses: codecov/codecov-action@v5
