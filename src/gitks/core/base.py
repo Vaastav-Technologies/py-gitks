@@ -5,8 +5,12 @@
 interfaces related to keyserver workings for ``gitks``.
 """
 from abc import abstractmethod
+from pathlib import Path
 from typing import Protocol
 
+from vt.utils.commons.commons.op import RootDirOp
+
+from gitks.core.constants import GIT_KS_KEYS_BRANCH, GIT_KS_DIR
 from gitks.core.model import KeyUploadResult, KeyData, KeyDeleteResult
 
 
@@ -116,3 +120,22 @@ class KeyServer(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
     - delete key with exact key id.
     """
     ...
+
+
+class GitKeyServer(KeyServer, RootDirOp, Protocol):
+    """
+    Interface for git keyserver.
+    """
+
+    @abstractmethod
+    def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BRANCH) -> None:
+        """
+        Initialise the gitks repo. Initialises:
+
+        - branch where keys are put to and retrieved from.
+        - Root directory where these keys will be kept offline/on client machine.
+
+        :param git_ks_dir: gitks root directory which will have keys offline.
+        :param branch: branch name where keys will be stored.
+        """
+        ...

@@ -13,6 +13,7 @@ from gitks.core.base import KeyReceiver as KeyReceiver
 from gitks.core.base import KeySearcher as KeySearcher
 from gitks.core.base import KeyDeleter as KeyDeleter
 from gitks.core.base import KeyServer as KeyServer
+from gitks.core.base import GitKeyServer as GitKeyServer
 # endregion
 
 
