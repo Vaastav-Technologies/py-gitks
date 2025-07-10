@@ -12,8 +12,9 @@ from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
+from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND
 
-from gitks.core import KeyDeleteResult, KeyData, KeyValidator, KeyUploadResult
+from gitks.core import KeyDeleteResult, KeyData, KeyValidator, KeyUploadResult, GitKsException
 from gitks.core.base import GitKeyServer
 from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BRANCH
 
@@ -46,8 +47,21 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         logger.info('repo initialised.')
 
         logger.debug(f"attempting to create branch {branch}")
-        self.git.subcmd_unchecked.run(['branch', branch])
-        logger.debug('branch created.')
+        main_branches = self.git.subcmd_unchecked.run(['branch', '--list', 'main', 'master'],
+                                                      text=True).stdout.split()
+        if not main_branches:
+            errmsg = 'No base main branches found.'
+            logger.notice(errmsg)
+            if not self.lenient:
+                errmsg += " Lenient mode off."
+                logger.error(errmsg)
+                raise GitKsException(errmsg, exit_code=ERR_CMD_NOT_FOUND)
+            else:
+                self.git.subcmd_unchecked.run(['commit', '-m', 'initial commit', '--allow-empty'])
+                logger.debug("Empty commit created on main branch.")
+
+        self.git.subcmd_unchecked.run(['branch', branch], text=True)
+        logger.info(f'branch {branch} created.')
 
         git_ks_dir = Path(self.root_dir, git_ks_dir)
         logger.debug(f"attempting to create directory: {git_ks_dir}")

@@ -24,3 +24,9 @@ from gitks.core.model import KeyDeleteStatus as KeyDeleteStatus
 from gitks.core.model import KeyDeleteResult as KeyDeleteResult
 from gitks.core.model import KeyData as KeyData
 # endregion
+
+
+# region gitks.core.errors re-exports
+from gitks.core.errors import KeyServerException as KeyServerException
+from gitks.core.errors import GitKsException as GitKsException
+# endregion

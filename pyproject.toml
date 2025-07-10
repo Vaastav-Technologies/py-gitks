@@ -42,7 +42,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "python-gnupg",
-    "gitbolt == 0.0.0.dev4",
+    "gitbolt == 0.0.0dev5",
     "logician"
 ]
 
