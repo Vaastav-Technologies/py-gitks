@@ -5,11 +5,10 @@
 implementations related to keyserver workings for ``gitks``.
 """
 import logging
-import subprocess
 from pathlib import Path
-from subprocess import CalledProcessError
+from typing import override
 
-from gitbolt.git_subprocess.exceptions import GitCmdException
+from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
@@ -34,26 +33,20 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         self.lenient = lenient
         logger.debug(f"lenient: {lenient}")
         logger.trace("Exiting")
+        self.git = SimpleGitCommand(self.repo_root_dir)
 
+    @override
     def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BRANCH) -> None:
         logger.trace("Entering")
         logger.debug(f"git_ks_dir: {git_ks_dir}")
         logger.debug(f"branch: {branch}")
 
         logger.info(f"Initialising git repo in {self.root_dir}")
-        try:
-            subprocess.run(['git', 'init', str(self.root_dir)], check=True, capture_output=True, text=True)
-        except CalledProcessError as e:
-            logger.error(f"Error while initialising repo at {self.root_dir}")
-            raise GitCmdException('Error while initialising repo', called_process_error=e) from e
+        self.git.subcmd_unchecked.run(['init'])
         logger.info('repo initialised.')
 
         logger.debug(f"attempting to create branch {branch}")
-        try:
-            subprocess.run(['git', 'branch', branch], check=True, capture_output=True, text=True)
-        except CalledProcessError as e:
-            logger.error(f"Error while creating branch {branch}")
-            raise GitCmdException('Error while creating branch', called_process_error=e) from e
+        self.git.subcmd_unchecked.run(['branch', branch])
         logger.debug('branch created.')
 
         git_ks_dir = Path(self.root_dir, git_ks_dir)
@@ -62,22 +55,28 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         logger.debug(f"Directory {git_ks_dir} created.")
         logger.trace("Exiting")
 
+    @override
     def send_key(self, public_key: bytes | str) -> KeyUploadResult:
         pass
 
+    @override
     def receive_key(self, key_id: str) -> bytes | str:
         pass
 
+    @override
     def search_keys(self, key_search_str: str) -> list[KeyData]:
         pass
 
+    @override
     def delete_key(self, key_id: str) -> KeyDeleteResult:
         pass
 
+    @override
     @property
     def root_dir(self) -> Path:
         return self.repo_root_dir
 
+    @override
     @property
     def key_validator(self) -> KeyValidator:
         return self._key_validator
