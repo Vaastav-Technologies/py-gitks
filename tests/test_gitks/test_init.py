@@ -4,8 +4,10 @@
 """
 tests relating to ``gitks init`` operation.
 """
+import pytest
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
+from gitks.core import GitKsException
 from gitks.core.impl import GitKeyServerImpl
 
 
@@ -29,3 +31,18 @@ class TestSimpleInit:
         ks.init()
         git = SimpleGitCommand(repo_local)
         return git, user_email, user_name
+
+
+class TestNoMainBranchesFound:
+    def test_with_lenient(self, repo_local):
+        user_name = 'ss'
+        user_email = 'ss@ss.ss'
+        ks = GitKeyServerImpl(None, repo_local, user_name=user_name, user_email=user_email)
+        ks.init()
+
+    def test_errs_without_lenient(self, repo_local):
+        user_name = 'ss'
+        user_email = 'ss@ss.ss'
+        ks = GitKeyServerImpl(None, repo_local, user_name=user_name, user_email=user_email, lenient=False)
+        with pytest.raises(GitKsException, match='No base main branches found.*Lenient mode off'):
+            ks.init()
