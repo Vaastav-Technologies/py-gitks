@@ -12,7 +12,7 @@ from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
-from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND
+from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND, ERR_STATE_ALREADY_EXISTS
 
 from gitks.core import KeyDeleteResult, KeyData, KeyValidator, KeyUploadResult, GitKsException
 from gitks.core.base import GitKeyServer
@@ -64,7 +64,7 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         if branch in existing_branches:
             errmsg = f'Requested branch {branch} already exists. Rerun with a different branch name.'
             logger.error(errmsg)
-            raise GitKsException(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
         logger.debug(f"Attempting to create branch {branch}")
         main_branches = self.git.subcmd_unchecked.run(['branch', '--list', 'main', 'master'],
