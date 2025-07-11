@@ -17,7 +17,7 @@ from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND, ERR_STATE_ALREADY_EXI
 from gitks.core import KeyDeleteResult, KeyData, KeyValidator, KeyUploadResult, GitKsException
 from gitks.core.base import GitKeyServer
 from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BRANCH, TEST_STR, FINAL_STR, GIT_KS_BRANCH_CONFIG_KEY, \
-    GIT_KS_DIR_CONFIG_KEY
+    GIT_KS_DIR_CONFIG_KEY, KEYSERVER_CONFIG_KEY, GIT_KS_STR
 
 _base_logger = logging.getLogger(__name__)
 logger = VTEnvListLC(['GITKS_LOG'], StdLoggerConfigurator()).configure(_base_logger)
@@ -106,6 +106,9 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
             logger.debug('Different gitks directory supplied for storing keys.')
             self.git.subcmd_unchecked.run(['config', '--local', GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)])
             logger.debug(f'Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}')
+
+        self.git.subcmd_unchecked.run(['config', '--local', KEYSERVER_CONFIG_KEY, GIT_KS_STR])
+        logger.info(f"Registered 'gitks' as the {KEYSERVER_CONFIG_KEY}")
 
         logger.success('Initialised gitks.')
         logger.trace("Exiting")

@@ -17,7 +17,7 @@ from gitks.core.constants import (
     TEST_STR,
     FINAL_STR,
     GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_BRANCH_CONFIG_KEY,
+    GIT_KS_BRANCH_CONFIG_KEY, KEYSERVER_CONFIG_KEY, GIT_KS_STR,
 )
 from gitks.core.impl import GitKeyServerImpl
 
@@ -127,10 +127,6 @@ def test_registers_branch_name_if_different_supplied(repo_local):
 
 
 def test_no_deliberate_registration_if_defaults_are_used(repo_local):
-    user_name = "ss"
-    user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
-    ks.init()
     git = SimpleGitCommand(repo_local)
     with pytest.raises(GitCmdException):  # non-existent key
         git.subcmd_unchecked.run(
@@ -160,3 +156,17 @@ def test_errs_if_keys_branch_already_exists(repo_local):
         match=f"Requested branch {keys_branch} already exists. Rerun with a different branch name.",
     ):
         ks.init(branch=keys_branch)
+
+
+def test_register_gitks_as_keyserver_on_success(repo_local):
+    user_name = "ss"
+    user_email = "ss@ss.ss"
+    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
+    ks.init()
+    git = SimpleGitCommand(repo_local)
+    assert (
+        git.subcmd_unchecked.run(
+            ["config", "--local", "--get", KEYSERVER_CONFIG_KEY], text=True
+        ).stdout.strip()
+        == GIT_KS_STR
+    )
