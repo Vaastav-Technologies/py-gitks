@@ -16,7 +16,7 @@ from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND
 
 from gitks.core import KeyDeleteResult, KeyData, KeyValidator, KeyUploadResult, GitKsException
 from gitks.core.base import GitKeyServer
-from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BRANCH
+from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BRANCH, TEST_STR, FINAL_STR
 
 _base_logger = logging.getLogger(__name__)
 logger = VTEnvListLC(['GITKS_LOG'], StdLoggerConfigurator()).configure(_base_logger)
@@ -55,7 +55,7 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
 
         logger.info(f"Initialising git repo in {self.root_dir}")
         self.git.subcmd_unchecked.run(['init'])
-        logger.info('repo initialised.')
+        logger.debug('repo initialised.')
 
         logger.debug(f"attempting to create branch {branch}")
         main_branches = self.git.subcmd_unchecked.run(['branch', '--list', 'main', 'master'],
@@ -81,10 +81,15 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         self.git.subcmd_unchecked.run(['branch', branch], text=True)
         logger.info(f'branch {branch} created.')
 
-        git_ks_dir = Path(self.root_dir, git_ks_dir)
-        logger.debug(f"attempting to create directory: {git_ks_dir}")
-        git_ks_dir.mkdir(parents=True)
-        logger.debug(f"Directory {git_ks_dir} created.")
+        git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
+        logger.debug(f"attempting to create test directory: {git_ks_test_dir}")
+        git_ks_test_dir.mkdir(parents=True)
+        logger.info(f"Directory {git_ks_test_dir} created.")
+        git_ks_final_dir = Path(self.root_dir, git_ks_dir, FINAL_STR)
+        logger.debug(f"attempting to create final directory: {git_ks_final_dir}")
+        git_ks_final_dir.mkdir(parents=True)
+        logger.info(f"Directory {git_ks_final_dir} created.")
+        logger.success('Initialised gitks.')
         logger.trace("Exiting")
 
     @override

@@ -4,10 +4,13 @@
 """
 tests relating to ``gitks init`` operation.
 """
+from pathlib import Path
+
 import pytest
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
 from gitks.core import GitKsException
+from gitks.core.constants import GIT_KS_DIR, TEST_STR, FINAL_STR
 from gitks.core.impl import GitKeyServerImpl
 
 
@@ -46,3 +49,24 @@ class TestNoMainBranchesFound:
         ks = GitKeyServerImpl(None, repo_local, user_name=user_name, user_email=user_email, lenient=False)
         with pytest.raises(GitKsException, match='No base main branches found.*Lenient mode off'):
             ks.init()
+
+
+@pytest.mark.parametrize('lenient', [True, False])
+def test_no_err_when_main_branches_found(repo_local, lenient):
+    user_name = 'ss'
+    user_email = 'ss@ss.ss'
+    ks = GitKeyServerImpl(None, repo_local, user_name=user_name, user_email=user_email, lenient=lenient)
+    git = SimpleGitCommand(repo_local)
+    git.subcmd_unchecked.run(['config', '--local', 'user.name', user_name])
+    git.subcmd_unchecked.run(['config', '--local', 'user.email', user_email])
+    a_file = Path(repo_local, 'a-file')
+    a_file.write_text('a-file')
+    git.add_subcmd.add(".")
+    git.subcmd_unchecked.run(['commit', '-m', 'added a-file'])
+    ks.init()
+
+@pytest.mark.parametrize('lenient', [True, False])
+def test_gitks_dir_created_when_main_branches_found(repo_local, lenient):
+    test_no_err_when_main_branches_found(repo_local, lenient)
+    assert Path(repo_local, GIT_KS_DIR, TEST_STR).exists()
+    assert Path(repo_local, GIT_KS_DIR, FINAL_STR).exists()

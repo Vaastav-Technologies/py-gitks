@@ -15,7 +15,22 @@ GIT_KS_KEYS_BRANCH = '/'.join([GIT_KS_BRANCH_ROOT, GIT_KS_KEYS_STR])
 
 REPO_GPG_HOME_STR = '.gpg-home'
 REPO_GPG_HOME = Path(GIT_DIR, REPO_GPG_HOME_STR)
-GIT_KS_DIR_STR = 'gitks'
+"""
+GPG home directory for further usage.
+"""
+
+GIT_KS_DIR_STR = '.gitks'
 GIT_KS_DIR = Path(REPO_GPG_HOME, GIT_KS_DIR_STR)
-TEST_STR = 'test'
-FINAL_STR = 'final'
+"""
+Directory specific to gitks
+"""
+
+TEST_STR = '.test'
+"""
+Keys will be stored in this home directory before finalising.
+"""
+
+FINAL_STR = '.final'
+"""
+Finalised keys will be stored in this home directory.
+"""
