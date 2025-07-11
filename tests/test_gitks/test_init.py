@@ -4,9 +4,28 @@
 """
 tests relating to ``gitks init`` operation.
 """
+from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
+
 from gitks.core.impl import GitKeyServerImpl
 
 
-def test_simple_init(repo_local):
-    ks = GitKeyServerImpl(None, repo_local)
-    ks.init()
+class TestSimpleInit:
+    def test_no_err_when_lenient(self, repo_local):
+        self.empty_repo_init_setup(repo_local)
+
+    def test_sets_supplied_user_name(self, repo_local):
+        git, _, user_name = self.empty_repo_init_setup(repo_local)
+        assert user_name == git.subcmd_unchecked.run(['config', '--local', '--get', 'user.name'], text=True).stdout.strip()
+
+    def test_sets_supplied_user_email(self, repo_local):
+        git, user_email, _ = self.empty_repo_init_setup(repo_local)
+        assert user_email == git.subcmd_unchecked.run(['config', '--local', '--get', 'user.email'], text=True).stdout.strip()
+
+    @staticmethod
+    def empty_repo_init_setup(repo_local):
+        user_name = 'ss'
+        user_email = 'ss@ss.ss'
+        ks = GitKeyServerImpl(None, repo_local, user_name=user_name, user_email=user_email)
+        ks.init()
+        git = SimpleGitCommand(repo_local)
+        return git, user_email, user_name

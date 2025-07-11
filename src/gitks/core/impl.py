@@ -24,7 +24,10 @@ logger = VTEnvListLC(['GITKS_LOG'], StdLoggerConfigurator()).configure(_base_log
 
 class GitKeyServerImpl(GitKeyServer, RootDirOp):
 
-    def __init__(self, key_validator: KeyValidator, repo_root_dir: Path | None = None, lenient: bool = True):
+    def __init__(self, key_validator: KeyValidator, repo_root_dir: Path | None = None,
+                 user_name: str | None = None,
+                 user_email: str | None = None,
+                 lenient: bool = True):
         logger.trace('Entering')
         self._key_validator = key_validator
         logger.debug(f"key_validator: {key_validator}")
@@ -35,6 +38,14 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         logger.debug(f"lenient: {lenient}")
         logger.trace("Exiting")
         self.git = SimpleGitCommand(self.repo_root_dir)
+        if user_name:  # else autodetect
+            self.user_name = user_name
+            self.git = self.git.git_envs_override(GIT_AUTHOR_NAME=user_name).git_envs_override(
+                GIT_COMMITTER_NAME=user_name)
+        if user_email:  # else autodetect
+            self.user_email = user_email
+            self.git = self.git.git_envs_override(GIT_AUTHOR_EMAIL=user_email).git_envs_override(
+                GIT_COMMITTER_EMAIL=user_email)
 
     @override
     def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BRANCH) -> None:
@@ -57,6 +68,13 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
                 logger.error(errmsg)
                 raise GitKsException(errmsg, exit_code=ERR_CMD_NOT_FOUND)
             else:
+                if self.user_name:
+                    self.git.subcmd_unchecked.run(['config', '--local', 'user.name', self.user_name])
+                    logger.debug(f"Set local git.user.name: {self.user_name}")
+                if self.user_email:
+                    self.git.subcmd_unchecked.run(['config', '--local', 'user.email', self.user_email])
+                    logger.debug(f"Set local git.user.email: {self.user_email}")
+
                 self.git.subcmd_unchecked.run(['commit', '-m', 'initial commit', '--allow-empty'])
                 logger.debug("Empty commit created on main branch.")
 
