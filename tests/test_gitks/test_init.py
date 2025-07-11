@@ -72,7 +72,7 @@ class TestNoMainBranchesFound:
             None, repo_local, user_name=user_name, user_email=user_email, lenient=False
         )
         with pytest.raises(
-            GitKsException, match="No base main branches found.*Lenient mode off"
+            GitKsException, match="No base main branches .* found. Lenient mode off."
         ):
             ks.init()
 

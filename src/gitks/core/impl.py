@@ -70,7 +70,7 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         main_branches = self.git.subcmd_unchecked.run(['branch', '--list', 'main', 'master'],
                                                       text=True).stdout.split()
         if not main_branches:
-            errmsg = 'No base main branches found.'
+            errmsg = "No base main branches (as 'main' or 'master') found."
             logger.notice(errmsg)
             if not self.lenient:
                 errmsg += " Lenient mode off."
