@@ -12,7 +12,13 @@ from gitbolt.git_subprocess.exceptions import GitCmdException
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
 from gitks.core import GitKsException
-from gitks.core.constants import GIT_KS_DIR, TEST_STR, FINAL_STR, GIT_KS_DIR_CONFIG_KEY, GIT_KS_BRANCH_CONFIG_KEY
+from gitks.core.constants import (
+    GIT_KS_DIR,
+    TEST_STR,
+    FINAL_STR,
+    GIT_KS_DIR_CONFIG_KEY,
+    GIT_KS_BRANCH_CONFIG_KEY,
+)
 from gitks.core.impl import GitKeyServerImpl
 
 
@@ -109,12 +115,15 @@ def test_registers_branch_name_if_different_supplied(repo_local):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
-    ano_gitks_branch = 'ano-gitks/keys'
+    ano_gitks_branch = "ano-gitks/keys"
     ks.init(branch=ano_gitks_branch)
     git = SimpleGitCommand(repo_local)
-    assert git.subcmd_unchecked.run(
-        ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
-    ).stdout.strip() == ano_gitks_branch
+    assert (
+        git.subcmd_unchecked.run(
+            ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
+        ).stdout.strip()
+        == ano_gitks_branch
+    )
 
 
 def test_no_deliberate_registration_if_defaults_are_used(repo_local):
@@ -123,11 +132,11 @@ def test_no_deliberate_registration_if_defaults_are_used(repo_local):
     ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
     ks.init()
     git = SimpleGitCommand(repo_local)
-    with pytest.raises(GitCmdException): # non-existent key
+    with pytest.raises(GitCmdException):  # non-existent key
         git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
         )
-    with pytest.raises(GitCmdException): # non-existent key
+    with pytest.raises(GitCmdException):  # non-existent key
         git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
         )
