@@ -79,6 +79,10 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
                 logger.debug("Empty commit created on main branch.")
 
         self.git.subcmd_unchecked.run(['branch', branch], text=True)
+        if branch != GIT_KS_KEYS_BRANCH:
+            logger.debug('Different branch name supplied for storing keys. ')
+            self.git.subcmd_unchecked.run(['config', '--local', 'gitks.keys.branch', branch])
+            logger.debug(f'Registered gitks.keys.branch={branch}')
         logger.info(f'branch {branch} created.')
 
         git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
@@ -89,6 +93,11 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         logger.debug(f"attempting to create final directory: {git_ks_final_dir}")
         git_ks_final_dir.mkdir(parents=True)
         logger.info(f"Directory {git_ks_final_dir} created.")
+        if git_ks_dir != GIT_KS_DIR:
+            logger.debug('Different gitks directory supplied for storing keys. ')
+            self.git.subcmd_unchecked.run(['config', '--local', 'gitks.keys.dir', str(git_ks_dir)])
+            logger.debug(f'Registered gitks.keys.dir={str(git_ks_dir)}')
+
         logger.success('Initialised gitks.')
         logger.trace("Exiting")
 

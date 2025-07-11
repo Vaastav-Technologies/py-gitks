@@ -8,6 +8,7 @@ tests relating to ``gitks init`` operation.
 from pathlib import Path
 
 import pytest
+from gitbolt.git_subprocess.exceptions import GitCmdException
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
 from gitks.core import GitKsException
@@ -90,3 +91,43 @@ def test_gitks_dir_created_when_main_branches_found(repo_local, lenient):
     test_no_err_when_main_branches_found(repo_local, lenient)
     assert Path(repo_local, GIT_KS_DIR, TEST_STR).exists()
     assert Path(repo_local, GIT_KS_DIR, FINAL_STR).exists()
+
+
+def test_registers_gitks_dir_if_different_supplied(repo_local):
+    user_name = "ss"
+    user_email = "ss@ss.ss"
+    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
+    ano_gitks_home = Path(".ano-gpg-home", ".ano-gitks")
+    ks.init(ano_gitks_home)
+    git = SimpleGitCommand(repo_local)
+    assert git.subcmd_unchecked.run(
+        ["config", "--local", "--get", "gitks.keys.dir"], text=True
+    ).stdout.strip() == str(ano_gitks_home)
+
+
+def test_registers_branch_name_if_different_supplied(repo_local):
+    user_name = "ss"
+    user_email = "ss@ss.ss"
+    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
+    ano_gitks_branch = 'ano-gitks/keys'
+    ks.init(branch=ano_gitks_branch)
+    git = SimpleGitCommand(repo_local)
+    assert git.subcmd_unchecked.run(
+        ["config", "--local", "--get", "gitks.keys.branch"], text=True
+    ).stdout.strip() == ano_gitks_branch
+
+
+def test_no_deliberate_registration_if_defaults_are_used(repo_local):
+    user_name = "ss"
+    user_email = "ss@ss.ss"
+    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
+    ks.init()
+    git = SimpleGitCommand(repo_local)
+    with pytest.raises(GitCmdException): # non-existent key
+        git.subcmd_unchecked.run(
+            ["config", "--local", "--get", "gitks.keys.branch"], text=True
+        )
+    with pytest.raises(GitCmdException): # non-existent key
+        git.subcmd_unchecked.run(
+            ["config", "--local", "--get", "gitks.keys.dir"], text=True
+        )

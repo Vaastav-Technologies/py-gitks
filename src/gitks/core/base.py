@@ -135,7 +135,7 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
         - branch where keys are put to and retrieved from.
         - Root directory where these keys will be kept offline/on client machine.
 
-        :param git_ks_dir: gitks root directory which will have keys offline.
+        :param git_ks_dir: gitks root directory which will have keys offline. This is the path from repo root.
         :param branch: branch name where keys will be stored.
         """
         ...
