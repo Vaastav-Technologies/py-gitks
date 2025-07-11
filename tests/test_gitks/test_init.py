@@ -55,7 +55,7 @@ class TestNoMainBranchesFound:
 def test_no_err_when_main_branches_found(repo_local, lenient):
     user_name = 'ss'
     user_email = 'ss@ss.ss'
-    ks = GitKeyServerImpl(None, repo_local, user_name=user_name, user_email=user_email, lenient=lenient)
+    ks = GitKeyServerImpl(None, repo_local, lenient=lenient)
     git = SimpleGitCommand(repo_local)
     git.subcmd_unchecked.run(['config', '--local', 'user.name', user_name])
     git.subcmd_unchecked.run(['config', '--local', 'user.email', user_email])
