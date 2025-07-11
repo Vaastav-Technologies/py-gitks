@@ -140,3 +140,23 @@ def test_no_deliberate_registration_if_defaults_are_used(repo_local):
         git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
         )
+
+
+def test_errs_if_keys_branch_already_exists(repo_local):
+    user_name = "ss"
+    user_email = "ss@ss.ss"
+    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
+    git = SimpleGitCommand(repo_local)
+    git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
+    git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
+    a_file = Path(repo_local, "a-file")
+    a_file.write_text("a-file")
+    git.add_subcmd.add(".")
+    git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
+    keys_branch = "gitks/keys-branch"
+    git.subcmd_unchecked.run(["branch", keys_branch])
+    with pytest.raises(
+        GitKsException,
+        match=f"Requested branch {keys_branch} already exists. Rerun with a different branch name.",
+    ):
+        ks.init(branch=keys_branch)

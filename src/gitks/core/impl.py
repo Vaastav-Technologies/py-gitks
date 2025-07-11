@@ -58,7 +58,15 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         self.git.subcmd_unchecked.run(['init'])
         logger.debug('repo initialised.')
 
-        logger.debug(f"attempting to create branch {branch}")
+        logger.debug(f"Checking if supplied branch exists already.")
+        existing_branches = self.git.subcmd_unchecked.run(['branch', '--list', branch],
+                                                          text=True).stdout.split()
+        if branch in existing_branches:
+            errmsg = f'Requested branch {branch} already exists. Rerun with a different branch name.'
+            logger.error(errmsg)
+            raise GitKsException(errmsg)
+
+        logger.debug(f"Attempting to create branch {branch}")
         main_branches = self.git.subcmd_unchecked.run(['branch', '--list', 'main', 'master'],
                                                       text=True).stdout.split()
         if not main_branches:
