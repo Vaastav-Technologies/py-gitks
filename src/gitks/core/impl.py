@@ -67,8 +67,8 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
     @override
     def init(
         self,
-        git_ks_dir: Path = GIT_KS_DIR,
         keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH,
+        git_ks_dir: Path = GIT_KS_DIR,
     ) -> None:
         logger.trace("Entering")
         logger.debug(f"git_ks_dir: {git_ks_dir}")
