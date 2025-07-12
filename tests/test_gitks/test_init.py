@@ -17,7 +17,9 @@ from gitks.core.constants import (
     TEST_STR,
     FINAL_STR,
     GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_BRANCH_CONFIG_KEY, KEYSERVER_CONFIG_KEY, GIT_KS_STR,
+    GIT_KS_BRANCH_CONFIG_KEY,
+    KEYSERVER_CONFIG_KEY,
+    GIT_KS_STR,
 )
 from gitks.core.impl import GitKeyServerImpl
 

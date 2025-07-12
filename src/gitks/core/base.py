@@ -4,6 +4,7 @@
 """
 interfaces related to keyserver workings for ``gitks``.
 """
+
 from abc import abstractmethod
 from pathlib import Path
 from typing import Protocol
@@ -119,6 +120,7 @@ class KeyServer(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
     - send key with exact key data.
     - delete key with exact key id.
     """
+
     ...
 
 
@@ -128,7 +130,9 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
     """
 
     @abstractmethod
-    def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BASE_BRANCH) -> None:
+    def init(
+        self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BASE_BRANCH
+    ) -> None:
         """
         Initialise the gitks repo. Initialises:
 
