@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import override
 
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
+from gitbolt.constants import GIT_DEFAULT_BRANCH_CONFIG_KEY
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
@@ -90,11 +91,12 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
         logger.debug(f"Attempting to create branch {keys_base_branch}")
-        main_branches = self.git.subcmd_unchecked.run(
-            ["branch", "--list", "main", "master"], text=True # TODO: make this not hard-coded
+        main_branch_str = self.git.subcmd_unchecked.run(["config", "--get", GIT_DEFAULT_BRANCH_CONFIG_KEY])
+        main_branch = self.git.subcmd_unchecked.run(
+            ["branch", "--list", main_branch_str], text=True
         ).stdout.split()
-        if not main_branches:
-            errmsg = "No base main branches (as 'main' or 'master') found."
+        if not main_branch:
+            errmsg = f"No base main branch {main_branch} found."
             logger.notice(errmsg)
             if not self.lenient:
                 errmsg += " Lenient mode off."
