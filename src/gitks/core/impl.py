@@ -81,7 +81,10 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         existing_branches = self.git.subcmd_unchecked.run(
             ["branch", "--list", keys_base_branch], text=True
         ).stdout.split()
-        if keys_base_branch in existing_branches:
+
+        keys_test_branch = f"{keys_base_branch}/{TEST_STR}"
+        keys_final_branch = f"{keys_base_branch}/{FINAL_STR}"
+        if keys_base_branch in existing_branches or keys_test_branch in existing_branches or keys_final_branch in existing_branches:
             errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
@@ -114,9 +117,12 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
                 )
                 logger.debug("Empty commit created on main branch.")
 
-        self.git.subcmd_unchecked.run(["branch", keys_base_branch], text=True)
+        self.git.subcmd_unchecked.run(["branch", keys_test_branch], text=True)
+        logger.debug(f"Created keys test branch: {keys_test_branch}")
+        self.git.subcmd_unchecked.run(["branch", keys_final_branch], text=True)
+        logger.debug(f"Created keys final branch: {keys_final_branch}")
         if keys_base_branch != GIT_KS_KEYS_BASE_BRANCH:
-            logger.debug("Different branch name supplied for storing keys.")
+            logger.debug("Different keys base branch name supplied for storing keys.")
             self.git.subcmd_unchecked.run(
                 ["config", "--local", GIT_KS_BRANCH_CONFIG_KEY, keys_base_branch]
             )

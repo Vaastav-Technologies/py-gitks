@@ -140,7 +140,8 @@ def test_no_deliberate_registration_if_defaults_are_used(repo_local):
         )
 
 
-def test_errs_if_keys_branch_already_exists(repo_local):
+@pytest.mark.parametrize('keys_branch', ['gitks/keys-branch', 'gitks-keys-branch', 'keys-branch'])
+def test_errs_if_keys_base_branch_already_exists(repo_local, keys_branch):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
@@ -151,11 +152,10 @@ def test_errs_if_keys_branch_already_exists(repo_local):
     a_file.write_text("a-file")
     git.add_subcmd.add(".")
     git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
-    keys_branch = "gitks/keys-branch"
     git.subcmd_unchecked.run(["branch", keys_branch])
     with pytest.raises(
         GitKsException,
-        match=f"Requested branch {keys_branch} already exists. Rerun with a different branch name.",
+        match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
     ):
         ks.init(keys_base_branch=keys_branch)
 
