@@ -14,8 +14,9 @@ from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
 from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND, ERR_STATE_ALREADY_EXISTS
 
-from gitks.core import KeyDeleteResult, KeyData, KeyValidator, KeyUploadResult, GitKsException
-from gitks.core.base import GitKeyServer
+from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult
+from gitks.core.base import GitKeyServer, KeyValidator
+from gitks.core.errors import GitKsException
 from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BRANCH, TEST_STR, FINAL_STR, GIT_KS_BRANCH_CONFIG_KEY, \
     GIT_KS_DIR_CONFIG_KEY, KEYSERVER_CONFIG_KEY, GIT_KS_STR
 
