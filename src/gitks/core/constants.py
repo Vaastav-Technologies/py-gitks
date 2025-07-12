@@ -31,14 +31,14 @@ GIT_KS_DIR = Path(REPO_GPG_HOME, GIT_KS_DIR_STR)
 Directory specific to gitks
 """
 
-TEST_STR = ".test"
+TEST_STR = "test"
 """
-Keys will be stored in this home directory before finalising.
+Keys will be stored in this home directory and branch before finalising.
 """
 
-FINAL_STR = ".final"
+FINAL_STR = "final"
 """
-Finalised keys will be stored in this home directory.
+Finalised keys will be stored in this home directory and branch.
 """
 
 BRANCH_STR = "branch"
