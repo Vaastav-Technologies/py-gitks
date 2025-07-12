@@ -63,7 +63,7 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         existing_branches = self.git.subcmd_unchecked.run(['branch', '--list', keys_base_branch],
                                                           text=True).stdout.split()
         if keys_base_branch in existing_branches:
-            errmsg = f'Requested branch {keys_base_branch} already exists. Rerun with a different branch name.'
+            errmsg = f'Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name.'
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
