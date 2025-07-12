@@ -129,7 +129,11 @@ def test_registers_branch_name_if_different_supplied(repo_local):
 
 
 def test_no_deliberate_registration_if_defaults_are_used(repo_local):
+    user_name = "ss"
+    user_email = "ss@ss.ss"
+    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
     git = SimpleGitCommand(repo_local)
+    ks.init()
     with pytest.raises(GitCmdException):  # non-existent key
         git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
