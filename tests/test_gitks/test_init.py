@@ -116,7 +116,7 @@ def test_registers_branch_name_if_different_supplied(repo_local):
     user_email = "ss@ss.ss"
     ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
     ano_gitks_branch = "ano-gitks/keys"
-    ks.init(branch=ano_gitks_branch)
+    ks.init(keys_base_branch=ano_gitks_branch)
     git = SimpleGitCommand(repo_local)
     assert (
         git.subcmd_unchecked.run(
@@ -155,7 +155,7 @@ def test_errs_if_keys_branch_already_exists(repo_local):
         GitKsException,
         match=f"Requested branch {keys_branch} already exists. Rerun with a different branch name.",
     ):
-        ks.init(branch=keys_branch)
+        ks.init(keys_base_branch=keys_branch)
 
 
 def test_register_gitks_as_keyserver_on_success(repo_local):

@@ -10,7 +10,7 @@ from typing import Protocol
 
 from vt.utils.commons.commons.op import RootDirOp
 
-from gitks.core.constants import GIT_KS_KEYS_BRANCH, GIT_KS_DIR
+from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR
 from gitks.core.model import KeyUploadResult, KeyData, KeyDeleteResult
 
 
@@ -128,7 +128,7 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
     """
 
     @abstractmethod
-    def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BRANCH) -> None:
+    def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BASE_BRANCH) -> None:
         """
         Initialise the gitks repo. Initialises:
 

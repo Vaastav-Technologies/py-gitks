@@ -12,7 +12,10 @@ from gitbolt import GIT_DIR
 GIT_KS_STR = 'gitks'
 GIT_KS_BRANCH_ROOT = f'{GIT_KS_STR}-internal'
 GIT_KS_KEYS_STR = 'keys'
-GIT_KS_KEYS_BRANCH = '/'.join([GIT_KS_BRANCH_ROOT, GIT_KS_KEYS_STR])
+GIT_KS_KEYS_BASE_BRANCH = '/'.join([GIT_KS_BRANCH_ROOT, GIT_KS_KEYS_STR])
+"""
+Base branch for ``gitks`` to store keys.
+"""
 
 
 REPO_GPG_HOME_STR = '.gpg-home'

@@ -17,7 +17,7 @@ from vt.utils.errors.error_specs import ERR_CMD_NOT_FOUND, ERR_STATE_ALREADY_EXI
 from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult
 from gitks.core.base import GitKeyServer, KeyValidator
 from gitks.core.errors import GitKsException
-from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BRANCH, TEST_STR, FINAL_STR, GIT_KS_BRANCH_CONFIG_KEY, \
+from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BASE_BRANCH, TEST_STR, FINAL_STR, GIT_KS_BRANCH_CONFIG_KEY, \
     GIT_KS_DIR_CONFIG_KEY, KEYSERVER_CONFIG_KEY, GIT_KS_STR
 
 _base_logger = logging.getLogger(__name__)
@@ -50,24 +50,24 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
                 GIT_COMMITTER_EMAIL=user_email)
 
     @override
-    def init(self, git_ks_dir: Path = GIT_KS_DIR, branch: str = GIT_KS_KEYS_BRANCH) -> None:
+    def init(self, git_ks_dir: Path = GIT_KS_DIR, keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH) -> None:
         logger.trace("Entering")
         logger.debug(f"git_ks_dir: {git_ks_dir}")
-        logger.debug(f"branch: {branch}")
+        logger.debug(f"key_base_branch: {keys_base_branch}")
 
         logger.info(f"Initialising git repo in {self.root_dir}")
         self.git.subcmd_unchecked.run(['init'])
         logger.debug('repo initialised.')
 
         logger.debug(f"Checking if supplied branch exists already.")
-        existing_branches = self.git.subcmd_unchecked.run(['branch', '--list', branch],
+        existing_branches = self.git.subcmd_unchecked.run(['branch', '--list', keys_base_branch],
                                                           text=True).stdout.split()
-        if branch in existing_branches:
-            errmsg = f'Requested branch {branch} already exists. Rerun with a different branch name.'
+        if keys_base_branch in existing_branches:
+            errmsg = f'Requested branch {keys_base_branch} already exists. Rerun with a different branch name.'
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
-        logger.debug(f"Attempting to create branch {branch}")
+        logger.debug(f"Attempting to create branch {keys_base_branch}")
         main_branches = self.git.subcmd_unchecked.run(['branch', '--list', 'main', 'master'],
                                                       text=True).stdout.split()
         if not main_branches:
@@ -88,12 +88,12 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
                 self.git.subcmd_unchecked.run(['commit', '-m', 'initial commit', '--allow-empty'])
                 logger.debug("Empty commit created on main branch.")
 
-        self.git.subcmd_unchecked.run(['branch', branch], text=True)
-        if branch != GIT_KS_KEYS_BRANCH:
+        self.git.subcmd_unchecked.run(['branch', keys_base_branch], text=True)
+        if keys_base_branch != GIT_KS_KEYS_BASE_BRANCH:
             logger.debug('Different branch name supplied for storing keys.')
-            self.git.subcmd_unchecked.run(['config', '--local', GIT_KS_BRANCH_CONFIG_KEY, branch])
-            logger.debug(f'Registered {GIT_KS_BRANCH_CONFIG_KEY}={branch}')
-        logger.info(f'branch {branch} created.')
+            self.git.subcmd_unchecked.run(['config', '--local', GIT_KS_BRANCH_CONFIG_KEY, keys_base_branch])
+            logger.debug(f'Registered {GIT_KS_BRANCH_CONFIG_KEY}={keys_base_branch}')
+        logger.info(f'key base branch {keys_base_branch} created.')
 
         git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
         logger.debug(f"attempting to create test directory: {git_ks_test_dir}")
