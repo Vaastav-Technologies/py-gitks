@@ -77,9 +77,9 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         self.git.subcmd_unchecked.run(["init"])
         logger.debug("repo initialised.")
 
-        logger.debug("Checking if supplied branch exists already.")
+        logger.debug("Checking if supplied keys base branch exists already.")
         existing_branches = self.git.subcmd_unchecked.run(
-            ["branch", "--list", keys_base_branch], text=True
+            ["branch", "--list", f"{keys_base_branch}*"], text=True
         ).stdout.split()
 
         keys_test_branch = f"{keys_base_branch}/{TEST_STR}"

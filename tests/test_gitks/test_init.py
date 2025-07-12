@@ -141,23 +141,47 @@ def test_no_deliberate_registration_if_defaults_are_used(repo_local):
 
 
 @pytest.mark.parametrize('keys_branch', ['gitks/keys-branch', 'gitks-keys-branch', 'keys-branch'])
-def test_errs_if_keys_base_branch_already_exists(repo_local, keys_branch):
-    user_name = "ss"
-    user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
-    git = SimpleGitCommand(repo_local)
-    git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
-    git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
-    a_file = Path(repo_local, "a-file")
-    a_file.write_text("a-file")
-    git.add_subcmd.add(".")
-    git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
-    git.subcmd_unchecked.run(["branch", keys_branch])
-    with pytest.raises(
-        GitKsException,
-        match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
-    ):
-        ks.init(keys_base_branch=keys_branch)
+class TestBranchCreations:
+    def test_errs_if_keys_base_branch_already_exists(self, repo_local, keys_branch):
+        git, ks = self._prep_branch(repo_local)
+        git.subcmd_unchecked.run(["branch", keys_branch])
+        with pytest.raises(
+            GitKsException,
+            match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
+        ):
+            ks.init(keys_base_branch=keys_branch)
+
+    def test_errs_if_keys_test_branch_already_exists(self, repo_local, keys_branch):
+        git, ks = self._prep_branch(repo_local)
+        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{TEST_STR}"])
+        with pytest.raises(
+            GitKsException,
+            match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
+        ):
+            ks.init(keys_base_branch=keys_branch)
+
+    def test_errs_if_keys_final_branch_already_exists(self, repo_local, keys_branch):
+        git, ks = self._prep_branch(repo_local)
+        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{FINAL_STR}"])
+        with pytest.raises(
+            GitKsException,
+            match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
+        ):
+            ks.init(keys_base_branch=keys_branch)
+
+    @staticmethod
+    def _prep_branch(repo_local):
+        user_name = "ss"
+        user_email = "ss@ss.ss"
+        ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
+        git = SimpleGitCommand(repo_local)
+        git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
+        git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
+        a_file = Path(repo_local, "a-file")
+        a_file.write_text("a-file")
+        git.add_subcmd.add(".")
+        git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
+        return git, ks
 
 
 def test_register_gitks_as_keyserver_on_success(repo_local):
