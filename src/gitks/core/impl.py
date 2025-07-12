@@ -91,7 +91,7 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
 
         logger.debug(f"Attempting to create branch {keys_base_branch}")
         main_branches = self.git.subcmd_unchecked.run(
-            ["branch", "--list", "main", "master"], text=True
+            ["branch", "--list", "main", "master"], text=True # TODO: make this not hard-coded
         ).stdout.split()
         if not main_branches:
             errmsg = "No base main branches (as 'main' or 'master') found."
