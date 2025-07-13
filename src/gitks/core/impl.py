@@ -90,39 +90,19 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
-        logger.debug(f"Attempting to create branch {keys_base_branch}")
-        main_branch_str = self.git.subcmd_unchecked.run(["config", "--get", GIT_DEFAULT_BRANCH_CONFIG_KEY])
-        main_branch = self.git.subcmd_unchecked.run(
-            ["branch", "--list", main_branch_str], text=True
-        ).stdout.split()
-        if not main_branch:
-            errmsg = f"No base main branch {main_branch} found."
-            logger.notice(errmsg)
-            if not self.lenient:
-                errmsg += " Lenient mode off."
-                logger.error(errmsg)
-                raise GitKsException(errmsg, exit_code=ERR_CMD_NOT_FOUND)
-            else:
-                if self.user_name:
-                    self.git.subcmd_unchecked.run(
-                        ["config", "--local", "user.name", self.user_name]
-                    )
-                    logger.debug(f"Set local git.user.name: {self.user_name}")
-                if self.user_email:
-                    self.git.subcmd_unchecked.run(
-                        ["config", "--local", "user.email", self.user_email]
-                    )
-                    logger.debug(f"Set local git.user.email: {self.user_email}")
+        if self.user_name:
+            self.git.subcmd_unchecked.run(
+                ["config", "--local", "user.name", self.user_name]
+            )
+            logger.debug(f"Set local git.user.name: {self.user_name}")
+        if self.user_email:
+            self.git.subcmd_unchecked.run(
+                ["config", "--local", "user.email", self.user_email]
+            )
+            logger.debug(f"Set local git.user.email: {self.user_email}")
 
-                self.git.subcmd_unchecked.run(
-                    ["commit", "-m", "initial commit", "--allow-empty"]
-                )
-                logger.debug("Empty commit created on main branch.")
+        logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
 
-        self.git.subcmd_unchecked.run(["branch", keys_test_branch], text=True)
-        logger.debug(f"Created keys test branch: {keys_test_branch}")
-        self.git.subcmd_unchecked.run(["branch", keys_final_branch], text=True)
-        logger.debug(f"Created keys final branch: {keys_final_branch}")
         if keys_base_branch != GIT_KS_KEYS_BASE_BRANCH:
             logger.debug("Different keys base branch name supplied for storing keys.")
             self.git.subcmd_unchecked.run(
