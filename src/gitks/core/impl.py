@@ -58,7 +58,7 @@ class WorkTreeGenerator(Protocol):
 
 class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
 
-    def __init__(self, base_dir: Path = Path.home(), git: GitCommand = None, random_dir_len: int = 10):
+    def __init__(self, base_dir: Path = Path.home(), git: GitCommand | None = None, random_dir_len: int = 10):
         """
         Generate worktrees for branches in a base directory.
 
@@ -118,7 +118,7 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         repo_root_dir: Path | None = None,
         user_name: str | None = None,
         user_email: str | None = None,
-        worktree_generator: WorkTreeGenerator = None
+        worktree_generator: WorkTreeGenerator | None = None
     ):
         logger.trace("Entering")
         self._key_validator = key_validator
