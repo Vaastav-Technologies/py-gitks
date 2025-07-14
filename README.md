@@ -12,3 +12,13 @@
 ## git keyserver (gitks)
 
 A keyserver for GPG/PGP keys implemented on git and pure python.
+
+---
+
+Git version >= 2.42.0
+
+i.e. git released after 21-Aug-2023
+
+`git worktree add --orphan` was added in this release.
+
+---

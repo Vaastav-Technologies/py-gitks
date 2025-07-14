@@ -131,7 +131,7 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
 
     @abstractmethod
     def init(
-        self, git_ks_dir: Path = GIT_KS_DIR, keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH
+        self, keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH, git_ks_dir: Path = GIT_KS_DIR
     ) -> None:
         """
         Initialise the gitks repo. Initialises:
@@ -139,7 +139,7 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
         - branch where keys are put to and retrieved from.
         - Root directory where these keys will be kept offline/on client machine.
 
-        :param git_ks_dir: gitks root directory which will have keys offline. This is the path from repo root.
         :param keys_base_branch: base branch name where keys will be stored.
+        :param git_ks_dir: gitks root directory which will have keys offline. This is the path from repo root.
         """
         ...
