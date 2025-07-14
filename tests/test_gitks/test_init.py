@@ -20,7 +20,7 @@ from gitks.core.constants import (
     KEYSERVER_CONFIG_KEY,
     GIT_KS_STR, GIT_KS_KEYS_BASE_BRANCH,
 )
-from gitks.core.impl import GitKeyServerImpl, BaseDirWorkTreeGenerator, WorkTreeGenerator
+from gitks.core.impl import WorkTreeGitKeyServerImpl, BaseDirWorkTreeGenerator, WorkTreeGenerator
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ class TestSimpleInit:
     def empty_repo_init_setup(repo_local, worktree_for_test):
         user_name = "ss"
         user_email = "ss@ss.ss"
-        ks = GitKeyServerImpl(
+        ks = WorkTreeGitKeyServerImpl(
             None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, user_name=user_name, user_email=user_email,
             worktree_generator=worktree_for_test
@@ -110,7 +110,7 @@ class TestSimpleInit:
 def test_no_err_when_main_branches_found(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(
+    ks = WorkTreeGitKeyServerImpl(
         None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, worktree_generator=worktree_for_test)
     git = SimpleGitCommand(repo_local)
@@ -132,7 +132,7 @@ def test_gitks_dir_created_when_main_branches_found(repo_local, worktree_for_tes
 def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(
+    ks = WorkTreeGitKeyServerImpl(
         None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, user_name, user_email,
             worktree_generator=worktree_for_test)
@@ -147,7 +147,7 @@ def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test
 def test_registers_branch_name_if_different_supplied(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(
+    ks = WorkTreeGitKeyServerImpl(
         None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, user_name, user_email,
             worktree_generator=worktree_for_test)
@@ -165,7 +165,7 @@ def test_registers_branch_name_if_different_supplied(repo_local, worktree_for_te
 def test_registration_even_if_defaults_are_used(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(
+    ks = WorkTreeGitKeyServerImpl(
         None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, user_name, user_email,
             worktree_generator=worktree_for_test)
@@ -212,7 +212,7 @@ class TestBranchCreations:
     def _prep_branch(repo_local, worktree_for_test):
         user_name = "ss"
         user_email = "ss@ss.ss"
-        ks = GitKeyServerImpl(
+        ks = WorkTreeGitKeyServerImpl(
             None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, user_name, user_email,
             worktree_generator=worktree_for_test)
@@ -229,7 +229,7 @@ class TestBranchCreations:
 def test_register_gitks_as_keyserver_on_success(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(
+    ks = WorkTreeGitKeyServerImpl(
         None, # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local, user_name, user_email,
             worktree_generator=worktree_for_test)
