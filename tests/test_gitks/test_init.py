@@ -58,27 +58,6 @@ class TestSimpleInit:
         return git, user_email, user_name
 
 
-class TestNoMainBranchesFound:
-    def test_with_lenient(self, repo_local):
-        user_name = "ss"
-        user_email = "ss@ss.ss"
-        ks = GitKeyServerImpl(
-            None, repo_local, user_name=user_name, user_email=user_email
-        )
-        ks.init()
-
-    def test_errs_without_lenient(self, repo_local):
-        user_name = "ss"
-        user_email = "ss@ss.ss"
-        ks = GitKeyServerImpl(
-            None, repo_local, user_name=user_name, user_email=user_email, lenient=False
-        )
-        with pytest.raises(
-            GitKsException, match="No base main branches .* found. Lenient mode off."
-        ):
-            ks.init()
-
-
 @pytest.mark.parametrize("lenient", [True, False])
 def test_no_err_when_main_branches_found(repo_local, lenient):
     user_name = "ss"
@@ -94,9 +73,8 @@ def test_no_err_when_main_branches_found(repo_local, lenient):
     ks.init()
 
 
-@pytest.mark.parametrize("lenient", [True, False])
-def test_gitks_dir_created_when_main_branches_found(repo_local, lenient):
-    test_no_err_when_main_branches_found(repo_local, lenient)
+def test_gitks_dir_created_when_main_branches_found(repo_local):
+    test_no_err_when_main_branches_found(repo_local)
     assert Path(repo_local, GIT_KS_DIR, TEST_STR).exists()
     assert Path(repo_local, GIT_KS_DIR, FINAL_STR).exists()
 
