@@ -102,7 +102,7 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
             if orphan:
                 commit_cmd_to_run = ["commit", "-m", f"initial commit for branch: {branch}", "--allow-empty"]
                 git.git_opts_override(C=[branch_dir]).subcmd_unchecked.run(commit_cmd_to_run)
-                logger.debug(f"Empty commit created for worktree branch: {branch}")
+                logger.debug(f"Empty commit created for orphan worktree branch: {branch}")
         logger.trace("Exiting")
         return random_base_dir
 
