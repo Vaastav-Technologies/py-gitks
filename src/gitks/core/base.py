@@ -121,6 +121,14 @@ class KeyServer(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
     - delete key with exact key id.
     """
 
+    ...
+
+
+class GitKeyServer(KeyServer, RootDirOp, Protocol):
+    """
+    Interface for git keyserver.
+    """
+
     @abstractmethod
     def init(
         self, keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH, git_ks_dir: Path = GIT_KS_DIR
@@ -135,11 +143,3 @@ class KeyServer(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
         :param git_ks_dir: gitks root directory which will have keys offline. This is the path from repo root.
         """
         ...
-
-
-class GitKeyServer(KeyServer, RootDirOp, Protocol):
-    """
-    Interface for git keyserver.
-    """
-
-    ...
