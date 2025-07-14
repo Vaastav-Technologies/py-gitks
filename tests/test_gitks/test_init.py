@@ -8,7 +8,6 @@ tests relating to ``gitks init`` operation.
 from pathlib import Path
 
 import pytest
-from gitbolt.git_subprocess.exceptions import GitCmdException
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
 from gitks.core import GitKsException
@@ -19,17 +18,22 @@ from gitks.core.constants import (
     GIT_KS_DIR_CONFIG_KEY,
     GIT_KS_BRANCH_CONFIG_KEY,
     KEYSERVER_CONFIG_KEY,
-    GIT_KS_STR,
+    GIT_KS_STR, GIT_KS_KEYS_BASE_BRANCH,
 )
-from gitks.core.impl import GitKeyServerImpl
+from gitks.core.impl import GitKeyServerImpl, BaseDirWorkTreeGenerator
+
+
+@pytest.fixture
+def base_worktree_path(tmp_path):
+    return Path(tmp_path, 'keys-base')
 
 
 class TestSimpleInit:
-    def test_no_err_when_lenient(self, repo_local):
-        self.empty_repo_init_setup(repo_local)
+    def test_no_err_run(self, repo_local, base_worktree_path):
+        self.empty_repo_init_setup(repo_local, base_worktree_path)
 
-    def test_sets_supplied_user_name(self, repo_local):
-        git, _, user_name = self.empty_repo_init_setup(repo_local)
+    def test_sets_supplied_user_name(self, repo_local, base_worktree_path):
+        git, _, user_name = self.empty_repo_init_setup(repo_local, base_worktree_path)
         assert (
             user_name
             == git.subcmd_unchecked.run(
@@ -37,8 +41,8 @@ class TestSimpleInit:
             ).stdout.strip()
         )
 
-    def test_sets_supplied_user_email(self, repo_local):
-        git, user_email, _ = self.empty_repo_init_setup(repo_local)
+    def test_sets_supplied_user_email(self, repo_local, base_worktree_path):
+        git, user_email, _ = self.empty_repo_init_setup(repo_local, base_worktree_path)
         assert (
             user_email
             == git.subcmd_unchecked.run(
@@ -47,22 +51,22 @@ class TestSimpleInit:
         )
 
     @staticmethod
-    def empty_repo_init_setup(repo_local):
+    def empty_repo_init_setup(repo_local, base_worktree_path):
         user_name = "ss"
         user_email = "ss@ss.ss"
         ks = GitKeyServerImpl(
-            None, repo_local, user_name=user_name, user_email=user_email
+            None, repo_local, user_name=user_name, user_email=user_email,
+            worktree_generator=BaseDirWorkTreeGenerator(base_worktree_path)
         )
         ks.init()
         git = SimpleGitCommand(repo_local)
         return git, user_email, user_name
 
 
-@pytest.mark.parametrize("lenient", [True, False])
-def test_no_err_when_main_branches_found(repo_local, lenient):
+def test_no_err_when_main_branches_found(repo_local):
     user_name = "ss"
     user_email = "ss@ss.ss"
-    ks = GitKeyServerImpl(None, repo_local, lenient=lenient)
+    ks = GitKeyServerImpl(None, repo_local)
     git = SimpleGitCommand(repo_local)
     git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
     git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
@@ -84,7 +88,7 @@ def test_registers_gitks_dir_if_different_supplied(repo_local):
     user_email = "ss@ss.ss"
     ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
     ano_gitks_home = Path(".ano-gpg-home", ".ano-gitks")
-    ks.init(ano_gitks_home)
+    ks.init(git_ks_dir=ano_gitks_home)
     git = SimpleGitCommand(repo_local)
     assert git.subcmd_unchecked.run(
         ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
@@ -106,20 +110,18 @@ def test_registers_branch_name_if_different_supplied(repo_local):
     )
 
 
-def test_no_deliberate_registration_if_defaults_are_used(repo_local):
+def test_registration_even_if_defaults_are_used(repo_local):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = GitKeyServerImpl(None, repo_local, user_name, user_email)
     git = SimpleGitCommand(repo_local)
     ks.init()
-    with pytest.raises(GitCmdException):  # non-existent key
-        git.subcmd_unchecked.run(
+    assert GIT_KS_KEYS_BASE_BRANCH == git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
-        )
-    with pytest.raises(GitCmdException):  # non-existent key
-        git.subcmd_unchecked.run(
+        ).stdout.strip()
+    assert str(GIT_KS_DIR) == git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
-        )
+        ).stdout.strip()
 
 
 @pytest.mark.parametrize('keys_branch', ['gitks/keys-branch', 'gitks-keys-branch', 'keys-branch'])
