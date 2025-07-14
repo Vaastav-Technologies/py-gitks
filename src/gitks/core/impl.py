@@ -186,6 +186,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
             logger.info(f"Repo configuration branch '{REPO_CONF_BRANCH}' already exists.")
             logger.debug(f"Checking if worktree for {REPO_CONF_BRANCH} is already present.")
             worktree_str = self.git.subcmd_unchecked.run(["worktree", "list", "--porcelain", "-z"]).stdout.strip()
+            # TODO: send a feature request to git to provide worktree with
+            #  either a git worktree list --get <branch-pattern>
+            #  or simplt git worktree list <branch-pattern>
             worktree_map = parse_git_worktree_branches_only(worktree_str)
             repo_conf_worktree = worktree_map.get(repo_conf_branch)
             if not repo_conf_worktree:
