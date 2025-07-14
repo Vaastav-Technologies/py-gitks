@@ -11,7 +11,7 @@ from gitbolt import GIT_DIR
 
 
 GIT_KS_STR = "gitks"
-GIT_KS_BRANCH_ROOT = f"{GIT_KS_STR}-internal"
+GIT_KS_BRANCH_ROOT = f"__{GIT_KS_STR}_internal"
 GIT_KS_KEYS_STR = "keys"
 GIT_KS_KEYS_BASE_BRANCH = "/".join([GIT_KS_BRANCH_ROOT, GIT_KS_KEYS_STR])
 """
@@ -53,3 +53,7 @@ KEYSERVER_STR = "keyserver"
 CONF_STR = "conf"
 KEYSERVER_CONFIG_KEY = f"enc.{KEYSERVER_STR}"
 KEYSERVER_BRANCH_NAME = f"__{ENC_STR}_internal/{KEYSERVER_STR}/{CONF_STR}"
+REPO_CONF_BRANCH = "__enc_internal/conf/main"
+"""
+This branch stores all the repo configurations.
+"""

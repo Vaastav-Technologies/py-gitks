@@ -28,7 +28,7 @@ from gitks.core.constants import (
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
     KEYSERVER_CONFIG_KEY,
-    GIT_KS_STR,
+    GIT_KS_STR, REPO_CONF_BRANCH,
 )
 from gitks.core.errors import GitKsException
 from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult
@@ -168,6 +168,49 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
         self.git.subcmd_unchecked.run(["init"])
         logger.debug("repo initialised.")
 
+        if self.user_name:
+            self.git.subcmd_unchecked.run(
+                ["config", "--local", "user.name", self.user_name]
+            )
+            logger.debug(f"Set local git.user.name: {self.user_name}")
+        if self.user_email:
+            self.git.subcmd_unchecked.run(
+                ["config", "--local", "user.email", self.user_email]
+            )
+            logger.debug(f"Set local git.user.email: {self.user_email}")
+
+        logger.debug("Checking if repo configuration branch exists already.")
+        repo_conf_branch = self.git.subcmd_unchecked.run(["branch", "--list", REPO_CONF_BRANCH],
+                                                         text=True).stdout.strip()
+        if repo_conf_branch:
+            logger.info(f"Repo configuration branch '{REPO_CONF_BRANCH}' already exists.")
+            logger.debug(f"Checking if worktree for {REPO_CONF_BRANCH} is already present.")
+            worktree_str = self.git.subcmd_unchecked.run(["worktree", "list", "--porcelain", "-z"]).stdout.strip()
+            worktree_map = parse_git_worktree_branches_only(worktree_str)
+            repo_conf_worktree = worktree_map.get(repo_conf_branch)
+            if not repo_conf_worktree:
+                logger.debug("Repo conf branch worktree does not exist.")
+                repo_conf_worktree = self.worktree_generator.generate_worktree(self.git.root_dir, repo_conf_branch)
+                logger.debug(f"Created repo conf branch worktree")
+        else:
+            logger.info("Creating repo configuration branch.")
+            repo_conf_worktree = self.worktree_generator.generate_worktree(self.git.root_dir,
+                                                                           REPO_CONF_BRANCH, orphan=True)
+            logger.debug(f"Created repo conf branch worktree")
+        logger.debug(f"repo_conf_worktree path: {repo_conf_worktree}")
+        repo_conf_worktree = Path(repo_conf_worktree, REPO_CONF_BRANCH)
+        repo_conf_worktree_ks_file = Path(repo_conf_worktree, "KEYSERVER")
+        repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
+        repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, "KEYSERVER.URL")
+        repo_conf_worktree_ks_url_file.write_text("SELF")   # denote that the git keyserver is on the same repo
+        repo_conf_worktree_ks_path_file = Path(repo_conf_worktree, "KEYSERVER.PATH")
+        repo_conf_worktree_ks_path_file.write_text("SELF")   # denote that the git keyserver is on the same repo
+        repo_conf_worktree_git = self.git.git_opts_override(C=[repo_conf_worktree])
+        repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file),
+                                              str(repo_conf_worktree_ks_path_file))
+        repo_conf_worktree_git.subcmd_unchecked.run(["commit", "-m", "git keyserver config added."])
+        logger.info("Configuration saved in repo conf branch.")
+
         logger.debug("Checking if supplied keys base branch exists already.")
         existing_branches = self.git.subcmd_unchecked.run(
             ["branch", "--list", f"{keys_base_branch}*"], text=True
@@ -179,17 +222,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
             errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
-
-        if self.user_name:
-            self.git.subcmd_unchecked.run(
-                ["config", "--local", "user.name", self.user_name]
-            )
-            logger.debug(f"Set local git.user.name: {self.user_name}")
-        if self.user_email:
-            self.git.subcmd_unchecked.run(
-                ["config", "--local", "user.email", self.user_email]
-            )
-            logger.debug(f"Set local git.user.email: {self.user_email}")
 
         logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
         worktree_path = self.worktree_generator.generate_worktree(self.git.root_dir, keys_test_branch, keys_final_branch,
@@ -248,3 +280,26 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
     @property
     def key_validator(self) -> KeyValidator:
         return self._key_validator
+
+
+def parse_git_worktree_branches_only(data: bytes):
+    worktrees = {}
+    entries = data.split(b'\0')
+
+    current = {}
+    for entry in entries:
+        if not entry:
+            # End of a worktree block
+            branch = current.get("branch")
+            if branch:
+                worktrees[branch] = current
+            current = {}
+            continue
+
+        if b' ' in entry:
+            key, value = entry.split(b' ', 1)
+            current[key.decode()] = value.decode()
+        else:
+            current[entry.decode()] = True  # flag like 'prunable' or 'locked'
+
+    return worktrees
