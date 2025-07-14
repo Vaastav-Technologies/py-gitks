@@ -190,7 +190,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
             #  either a git worktree list --get <branch-pattern>
             #  or simplt git worktree list <branch-pattern>
             worktree_map = parse_git_worktree_branches_only(worktree_str)
-            repo_conf_worktree = worktree_map.get(repo_conf_branch)
+            repo_conf_worktree_details = worktree_map.get(repo_conf_branch)
+            repo_conf_worktree = repo_conf_worktree_details.get("worktree")
             if not repo_conf_worktree:
                 logger.debug("Repo conf branch worktree does not exist.")
                 repo_conf_worktree = self.worktree_generator.generate_worktree(self.git.root_dir, repo_conf_branch)
