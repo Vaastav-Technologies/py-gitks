@@ -112,7 +112,7 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
         return self.base_dir
 
 
-class GitKeyServerImpl(GitKeyServer, RootDirOp):
+class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
     def __init__(
         self,
         key_validator: KeyValidator,
