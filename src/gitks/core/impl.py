@@ -62,7 +62,8 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
         """
         Generate worktrees for branches in a base directory.
 
-        :param base_dir: the base directory to generate worktrees in.
+        :param base_dir: the base directory to generate worktrees in. Defaults to user's home directory
+            if this parameter is not provided.
         :param git: the git object.
         :param random_dir_len: length of the random directory which will be inside ``base_dir`` to have worktrees
             created into.
@@ -120,6 +121,17 @@ class GitKeyServerImpl(GitKeyServer, RootDirOp):
         user_email: str | None = None,
         worktree_generator: WorkTreeGenerator | None = None
     ):
+        """
+        Get a ``GitKeyServer`` which maintains its keys in branches on worktrees.
+
+        :param key_validator: The validator for keys.
+        :param repo_root_dir: root directory of the git repo.
+        :param user_name: git's ``user.name``. Will take the global ``user.name`` if not provided.
+        :param user_email: git's ``user.email``. Will take global ``user.email`` if not provided.
+        :param worktree_generator: A generator which generates worktrees for keys branches. Defaults to generating
+            worktrees directly at user's home directory if this parameter is not provided. This decision is mostly ok
+            for most cases.
+        """
         logger.trace("Entering")
         self._key_validator = key_validator
         logger.debug(f"key_validator: {key_validator}")
