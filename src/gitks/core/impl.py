@@ -8,6 +8,7 @@ implementations related to keyserver workings for ``gitks``.
 import logging
 import random
 import string
+import typing
 from abc import abstractmethod
 from pathlib import Path
 from typing import override, Protocol
@@ -286,6 +287,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
         return self._key_validator
 
 
+@typing.no_type_check
 def parse_git_worktree_branches_only(data: bytes):
     worktrees = {}
     entries = data.split(b'\0')
