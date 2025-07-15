@@ -42,14 +42,14 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "python-gnupg",
-    "gitbolt == 0.0.0dev7",
+    "gitbolt == 0.0.0dev8",
     "logician"
 ]
 
 [dependency-groups]
 dev = ["mypy", "ruff"]
 doc = ['sphinx', 'sphinx-argparse']
-test = ['pytest', 'pytest-cov']
+test = ['gitbolt[test]', 'pytest-cov']
 multitest = ['tox']
 
 [project.scripts]
