@@ -8,19 +8,21 @@ implementations related to keyserver workings for ``gitks``.
 import logging
 import random
 import string
+import subprocess
 import typing
 from abc import abstractmethod
 from pathlib import Path
-from typing import override, Protocol
+from subprocess import CalledProcessError
+from typing import override, Protocol, overload
 
 from gitbolt.git_subprocess.base import GitCommand
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
-from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS
+from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS, ERR_GENERIC_ERR
 
-from gitks.core.base import GitKeyServer, KeyValidator
+from gitks.core.base import GitKeyServer, KeyValidator, GitKeyServerClient
 from gitks.core.constants import (
     GIT_KS_DIR,
     GIT_KS_KEYS_BASE_BRANCH,
@@ -29,10 +31,12 @@ from gitks.core.constants import (
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
     KEYSERVER_CONFIG_KEY,
-    GIT_KS_STR, REPO_CONF_BRANCH,
+    GIT_KS_STR, REPO_CONF_BRANCH, SELF_REPO,
 )
 from gitks.core.errors import GitKsException
-from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult
+from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult, KeyServerConnectResult, GitSelf, \
+    GitKSCloneResult
+from gitks.core.utils import extract_repo_name, is_git_repo
 
 _base_logger = logging.getLogger(__name__)
 logger = VTEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
@@ -113,14 +117,16 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
         return self.base_dir
 
 
-class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
+class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
+
     def __init__(
         self,
         key_validator: KeyValidator,
         repo_root_dir: Path | None = None,
         user_name: str | None = None,
         user_email: str | None = None,
-        worktree_generator: WorkTreeGenerator | None = None
+        worktree_generator: WorkTreeGenerator | None = None,
+        clone_base_dir: Path = Path.home()
     ):
         """
         Get a ``GitKeyServer`` which maintains its keys in branches on worktrees.
@@ -132,6 +138,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
         :param worktree_generator: A generator which generates worktrees for keys branches. Defaults to generating
             worktrees directly at user's home directory if this parameter is not provided. This decision is mostly ok
             for most cases.
+        :param clone_base_dir: Repo will be cloned to this base location upon clone operation.
         """
         logger.trace("Entering")
         self._key_validator = key_validator
@@ -154,6 +161,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
         logger.debug(f"supplied worktree_generator: {worktree_generator}")
         self.worktree_generator = worktree_generator or BaseDirWorkTreeGenerator(Path.home())
         logger.debug(f"computed worktree_generator: {worktree_generator}")
+        self.clone_base_dir = clone_base_dir
+        logger.debug(f"clone_base_dir: {self.clone_base_dir}")
+        logger.trace("Exiting")
 
     @override
     def init(
@@ -259,6 +269,101 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, RootDirOp):
 
         logger.success("Initialised gitks.")
         logger.trace("Exiting")
+
+    @overload
+    @override
+    def clone(self, *, url: GitSelf = SELF_REPO, base_dir: GitSelf = SELF_REPO) -> GitKSCloneResult:
+        ...
+
+    @overload
+    @override
+    def clone(self, *, url: str, base_dir: Path | None = None) -> GitKSCloneResult:
+        ...
+
+    @override
+    def clone(self, *, url: str | GitSelf = SELF_REPO, base_dir: Path | None | GitSelf = SELF_REPO) -> GitKSCloneResult:
+        """
+        Examples:
+
+        >>> test_obj = WorkTreeGitKeyServerImpl(None) # type: ignore[arg-type] # required KeyValidator got None
+
+        * Error scenarios
+
+        * ``url`` and ``base_dir`` both should be ``SELF_REPO``.
+
+        >>> test_obj.clone(url=SELF_REPO, base_dir=Path()) # type: ignore[arg-type] # required both SELF_REPO
+        Traceback (most recent call last):
+        gitks.core.errors.GitKsException: ValueError: SELF_REPO url does not allow base_dir configuration.
+
+        >>> test_obj.clone(url="", base_dir=SELF_REPO) # type: ignore[arg-type] # required both SELF_REPO
+        Traceback (most recent call last):
+        gitks.core.errors.GitKsException: ValueError: SELF_REPO base_dir does not allow url configuration.
+
+        * Assumes ``url`` and ``base_dir`` both as ``SELF_REPO`` if none of them are provided.
+
+        >>> assert Path.cwd() == test_obj.clone().repo_path # SELF_REPO denotes current repo path
+
+        """
+        logger.trace("Entering")
+        logger.debug(f"url: {url}")
+        logger.debug(f"base_dir: {base_dir}")
+        if url == SELF_REPO and base_dir != SELF_REPO:
+            errmsg = "SELF_REPO url does not allow base_dir configuration."
+            logger.error(errmsg)
+            raise GitKsException(errmsg) from ValueError(errmsg)
+
+        if base_dir == SELF_REPO and url != SELF_REPO:
+            errmsg = "SELF_REPO base_dir does not allow url configuration."
+            logger.error(errmsg)
+            raise GitKsException(errmsg) from ValueError(errmsg)
+
+        if base_dir == SELF_REPO and url == SELF_REPO:
+            message = "No clone needed as repo itself is the keyserver."
+            logger.notice(message)
+            logger.info("No-op")
+            return GitKSCloneResult(connected=True,
+                                    message=message,
+                                    repo_path=self.repo_root_dir,
+                                    code=200,
+                                    details=dict(status="OK", operation="NOOP"))
+
+        base_dir = base_dir or self.clone_base_dir
+        logger.debug(f"computed base_dir: {base_dir}")
+        logger.debug("Trying to clone the repo in desired base_dir.")
+        repo_name = extract_repo_name(url)
+        logger.debug(f"Extracted repo name: {repo_name}")
+        repo_dir = Path(base_dir, repo_name)
+        logger.debug(f"repo_dir: {repo_dir}")
+        if is_git_repo(repo_dir):
+            message = f"Repo already cloned at {repo_dir}"
+            logger.notice(f"{message}. skipping clone..")
+            return GitKSCloneResult(connected=True,
+                                    message=message,
+                                    repo_path=repo_dir,
+                                    code=200,
+                                    details=dict(status="ALREADY_EXISTS", operation="NOOP"))
+
+        logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
+        try:
+            clone_cmd = ["git", "clone", url, str(repo_dir)]
+            logger.debug(f"Running: {clone_cmd}")
+            completed_process = subprocess.run(clone_cmd, capture_output=True,
+                                               check=True, text=True)
+            logger.trace("Exiting")
+            return GitKSCloneResult(connected=True,
+                                    message=completed_process.stderr,
+                                    repo_path=repo_dir,
+                                    code=completed_process.returncode,
+                                    details=dict(status="ALREADY_EXISTS", operation="clone",
+                                                 out=completed_process.stdout))
+        except CalledProcessError as e:
+            logger.error(f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`")
+            raise GitKsException(f"Error chile cloning repo: {repo_name}", exit_code=e.returncode,
+                                 connected=False, message=e.stderr, code=e.returncode, status="CLONE_ERROR",
+                                 operation="clone", out=e.output, cmd=e.cmd) from e
+
+    def register(self, url: str) -> KeyServerConnectResult:
+        return self.clone(url=url)
 
     @override
     def send_key(self, public_key: bytes | str) -> KeyUploadResult:

@@ -5,9 +5,12 @@
 models related to keyserver workings for ``gitks``.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from dataclasses import dataclass
+from pathlib import Path
+
+from vt.utils.commons.commons.core_py.base import Sentinel
 
 
 # region key upload models
@@ -51,3 +54,28 @@ class KeyData:
     raw_bytes: bytes
     format: str  # e.g., "PGP", "PEM", "SSH"
     created_at: datetime | None = None
+
+
+@dataclass
+class KeyServerConnectResult:
+    connected: bool
+    message: str
+    details: dict[str, str]
+    code: int
+
+
+@dataclass
+class GitKSCloneResult(KeyServerConnectResult):
+    repo_path: Path | None
+
+
+class GitSelf(Sentinel):
+    """
+    Sentinel denoting the same repo is keyserver as well as keyserver client.
+    """
+
+    def __init__(self, str_name: str):
+        self.str_name = str_name
+
+    def str(self) -> str:
+        return self.str_name

@@ -6,9 +6,11 @@ Constants related to keyserver workings for ``gitks``.
 """
 
 from pathlib import Path
+from typing import Final
 
 from gitbolt import GIT_DIR
 
+from gitks.core.model import GitSelf
 
 GIT_KS_STR = "gitks"
 GIT_KS_BRANCH_ROOT = f"__{GIT_KS_STR}_internal"
@@ -57,3 +59,5 @@ REPO_CONF_BRANCH = "__enc_internal/conf/main"
 """
 This branch stores all the repo configurations.
 """
+
+SELF_REPO: Final[GitSelf] = GitSelf("__SELF_REPO__")

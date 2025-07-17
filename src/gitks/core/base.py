@@ -7,12 +7,13 @@ interfaces related to keyserver workings for ``gitks``.
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, overload
 
 from vt.utils.commons.commons.op import RootDirOp
 
-from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR
-from gitks.core.model import KeyUploadResult, KeyData, KeyDeleteResult
+from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR, SELF_REPO
+from gitks.core.model import KeyUploadResult, KeyData, KeyDeleteResult, KeyServerConnectResult, GitKSCloneResult, \
+    GitSelf
 
 
 class KeyValidator(Protocol):
@@ -111,7 +112,15 @@ class KeyDeleter(Protocol):
         ...
 
 
-class KeyServer(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
+class KeyServer(Protocol):
+    """
+    Interface of a keyserver.
+    """
+
+    ...
+
+
+class KeyServerClient(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
     """
     Interface of a keyserver. Can:
 
@@ -121,7 +130,16 @@ class KeyServer(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
     - delete key with exact key id.
     """
 
-    ...
+    @abstractmethod
+    def register(self, url: str) -> KeyServerConnectResult:
+        """
+        Register self to the keyserver present at url ``url``.
+
+        :param url: the keyserver url to connect to.
+        :return: connection result.
+        """
+
+        ...
 
 
 class GitKeyServer(KeyServer, RootDirOp, Protocol):
@@ -142,4 +160,34 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
         :param keys_base_branch: base branch name where keys will be stored.
         :param git_ks_dir: gitks root directory which will have keys offline. This is the path from repo root.
         """
+        ...
+
+
+class GitKeyServerClient(KeyServerClient, RootDirOp, Protocol):
+    """
+    Interface for git keyserver client
+    """
+
+    @overload
+    @abstractmethod
+    def clone(self, *, url: GitSelf = SELF_REPO, base_dir: GitSelf = SELF_REPO) -> GitKSCloneResult:
+        ...
+
+    @overload
+    @abstractmethod
+    def clone(self, *, url: str, base_dir: Path | None = None) -> GitKSCloneResult:
+        ...
+
+    @abstractmethod
+    def clone(self, *, url: str | GitSelf = SELF_REPO, base_dir: Path | None | GitSelf = SELF_REPO) -> GitKSCloneResult:
+        """
+        Clone the git repo acting as a keyserver into a specified ``base_dir``.
+
+        :param url: source of the git repo.
+        :param base_dir: directory where this repo will be cloned into. Defaults to ``__SELF_REPO__``, denoting that
+            this repo itself is the git keyserver. ``None`` means to use the default location (determined by
+            the implementation).
+        :return: the clone (and hence, connect) result o git keyserver client.
+        """
+
         ...
