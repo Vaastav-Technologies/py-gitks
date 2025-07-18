@@ -183,6 +183,11 @@ class GitKeyServerClient(KeyServerClient, RootDirOp, Protocol):
         """
         Clone the git repo acting as a keyserver into a specified ``base_dir``.
 
+        Doesn't perform real cloning if:
+
+        - repo is a ``SELF_REPO``
+        - repo is already cloned in the supplied ``base_dir``.
+
         :param url: source of the git repo.
         :param base_dir: directory where this repo will be cloned into. Defaults to ``__SELF_REPO__``, denoting that
             this repo itself is the git keyserver. ``None`` means to use the default location (determined by
