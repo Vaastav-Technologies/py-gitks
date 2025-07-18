@@ -20,7 +20,7 @@ from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
-from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS, ERR_GENERIC_ERR
+from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS
 
 from gitks.core.base import GitKeyServer, KeyValidator, GitKeyServerClient
 from gitks.core.constants import (
@@ -30,8 +30,8 @@ from gitks.core.constants import (
     FINAL_STR,
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
-    KEYSERVER_CONFIG_KEY,
-    GIT_KS_STR, REPO_CONF_BRANCH, SELF_REPO,
+    GIT_KS_STR, REPO_CONF_BRANCH, SELF_REPO, CAPS_KEYSERVER_STR, KEYSERVER_URL_F_NAME,
+    GIT_KS_KEYSERVER_PATH_KEY,
 )
 from gitks.core.errors import GitKsException
 from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult, KeyServerConnectResult, GitSelf, \
@@ -214,17 +214,18 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             logger.debug(f"Created repo conf branch worktree")
         logger.debug(f"repo_conf_worktree path: {repo_conf_worktree}")
         repo_conf_worktree = Path(repo_conf_worktree, REPO_CONF_BRANCH)
-        repo_conf_worktree_ks_file = Path(repo_conf_worktree, "KEYSERVER")
+        repo_conf_worktree_ks_file = Path(repo_conf_worktree, CAPS_KEYSERVER_STR)
         repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
-        repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, "KEYSERVER.URL")
+        repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, KEYSERVER_URL_F_NAME)
         repo_conf_worktree_ks_url_file.write_text(str(SELF_REPO))   # denote that the git keyserver is on the same repo
-        repo_conf_worktree_ks_path_file = Path(repo_conf_worktree, "KEYSERVER.PATH")
-        repo_conf_worktree_ks_path_file.write_text(str(SELF_REPO))   # denote that the git keyserver is on the same repo
-        repo_conf_worktree_git = self.git.git_opts_override(C=[repo_conf_worktree])
-        repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file),
-                                              str(repo_conf_worktree_ks_path_file))
-        repo_conf_worktree_git.subcmd_unchecked.run(["commit", "-m", "git keyserver config added."])
-        logger.info("Configuration saved in repo conf branch.")
+        repo_conf_worktree_git = self.git.git_opts_override(C=[repo_conf_worktree]) # get special separate git for the
+                                                                                    # repo conf branch's worktree
+        repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file))
+        repo_conf_worktree_git.subcmd_unchecked.run(["commit", "-m", "git keyserver registered."])
+        logger.info("Central configuration saved.")
+        repo_conf_worktree_git.subcmd_unchecked.run(["config", "--local", GIT_KS_KEYSERVER_PATH_KEY,
+                                                     str(SELF_REPO)])
+        logger.info("Local configuration saved.")
 
         logger.debug("Checking if supplied keys base branch exists already.")
         existing_branches = self.git.subcmd_unchecked.run(
@@ -241,11 +242,15 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
         worktree_path = self.worktree_generator.generate_worktree(self.git.root_dir, keys_test_branch, keys_final_branch,
                                                   orphan=True)
-        logger.debug(f"Worktrees generated in {worktree_path}")
+        logger.debug(f"Keys base branch worktrees generated in {worktree_path}")
+        logger.debug(f"{keys_test_branch} -> {worktree_path / keys_test_branch}")
+        logger.debug(f"{keys_base_branch} -> {worktree_path / keys_base_branch}")
 
-        self.git.subcmd_unchecked.run(
-            ["config", "--local", GIT_KS_BRANCH_CONFIG_KEY, keys_base_branch]
-        )
+        logger.debug(f"Storing {GIT_KS_STR} branch configuration in repo conf branch.")
+        repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, "KEYSERVER.BRANCH")
+        repo_conf_worktree_ks_branch_file.write_text(keys_base_branch)
+        repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_branch_file))
+        repo_conf_worktree_git.subcmd_unchecked.run(["commit", "-m", "git keyserver base branch"])
         logger.debug(f"Registered {GIT_KS_BRANCH_CONFIG_KEY}={keys_base_branch}")
         logger.info(f"key base branch {keys_base_branch} created.")
 
@@ -261,11 +266,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             ["config", "--local", GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)]
         )
         logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
-
-        self.git.subcmd_unchecked.run(
-            ["config", "--local", KEYSERVER_CONFIG_KEY, GIT_KS_STR]
-        )
-        logger.info(f"Registered 'gitks' as the {KEYSERVER_CONFIG_KEY}")
 
         logger.success("Initialised gitks.")
         logger.trace("Exiting")

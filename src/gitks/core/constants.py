@@ -43,7 +43,10 @@ FINAL_STR = "final"
 Finalised keys will be stored in this home directory and branch.
 """
 
+URL_STR = "url"
+CAPS_URL_STR = URL_STR.upper()
 BRANCH_STR = "branch"
+CAPS_BRANCH_STR = BRANCH_STR.upper()
 DIR_STR = "dir"
 
 GIT_KS_KEYS_CONFIG_KEY = ".".join([GIT_KS_STR, GIT_KS_KEYS_STR])
@@ -52,7 +55,11 @@ GIT_KS_DIR_CONFIG_KEY = ".".join([GIT_KS_KEYS_CONFIG_KEY, DIR_STR])
 
 ENC_STR = "enc"
 KEYSERVER_STR = "keyserver"
+CAPS_KEYSERVER_STR = KEYSERVER_STR.upper()
+KEYSERVER_URL_F_NAME = f"{CAPS_KEYSERVER_STR}.{CAPS_URL_STR}"
+KEYSERVER_BRANCH_F_NAME = f"{CAPS_KEYSERVER_STR}.{CAPS_BRANCH_STR}"
 CONF_STR = "conf"
+GIT_KS_KEYSERVER_PATH_KEY = f"{GIT_KS_STR}.{KEYSERVER_STR}.path"
 KEYSERVER_CONFIG_KEY = f"enc.{KEYSERVER_STR}"
 KEYSERVER_BRANCH_NAME = f"__{ENC_STR}_internal/{KEYSERVER_STR}/{CONF_STR}"
 REPO_CONF_BRANCH = "__enc_internal/conf/main"

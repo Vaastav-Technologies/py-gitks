@@ -16,9 +16,8 @@ from gitks.core.constants import (
     TEST_STR,
     FINAL_STR,
     GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_BRANCH_CONFIG_KEY,
     KEYSERVER_CONFIG_KEY,
-    GIT_KS_STR, GIT_KS_KEYS_BASE_BRANCH,
+    GIT_KS_STR, GIT_KS_KEYS_BASE_BRANCH, REPO_CONF_BRANCH,
 )
 from gitks.core.impl import WorkTreeGitKeyServerImpl, BaseDirWorkTreeGenerator, WorkTreeGenerator
 
@@ -144,7 +143,7 @@ def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test
     ).stdout.strip() == str(ano_gitks_home)
 
 
-def test_registers_branch_name_if_different_supplied(repo_local, worktree_for_test):
+def test_centrally_registers_branch_name_if_different_supplied(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
@@ -156,7 +155,7 @@ def test_registers_branch_name_if_different_supplied(repo_local, worktree_for_te
     git = SimpleGitCommand(repo_local)
     assert (
         git.subcmd_unchecked.run(
-            ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
+            ["show", f"{REPO_CONF_BRANCH}:KEYSERVER.BRANCH"], text=True
         ).stdout.strip()
         == ano_gitks_branch
     )
@@ -171,9 +170,11 @@ def test_registration_even_if_defaults_are_used(repo_local, worktree_for_test):
             worktree_generator=worktree_for_test)
     git = SimpleGitCommand(repo_local)
     ks.init()
+    # centrally registers branch info
     assert GIT_KS_KEYS_BASE_BRANCH == git.subcmd_unchecked.run(
-            ["config", "--local", "--get", GIT_KS_BRANCH_CONFIG_KEY], text=True
+            ["show", f"{REPO_CONF_BRANCH}:KEYSERVER.BRANCH"], text=True
         ).stdout.strip()
+    # locally registers dir info
     assert str(GIT_KS_DIR) == git.subcmd_unchecked.run(
             ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
         ).stdout.strip()
