@@ -358,7 +358,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                                                  out=completed_process.stdout))
         except CalledProcessError as e:
             logger.error(f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`")
-            raise GitKsException(f"Error chile cloning repo: {repo_name}", exit_code=e.returncode,
+            raise GitKsException(f"Error while cloning repo: {repo_name}", exit_code=e.returncode,
                                  connected=False, message=e.stderr, code=e.returncode, status="CLONE_ERROR",
                                  operation="clone", out=e.output, cmd=e.cmd) from e
 
