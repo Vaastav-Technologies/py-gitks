@@ -363,6 +363,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                                  operation="clone", out=e.output, cmd=e.cmd) from e
 
     def register(self, url: str) -> KeyServerConnectResult:
+        if url == str(SELF_REPO):
+            return self.clone(url=SELF_REPO)
         return self.clone(url=url)
 
     @override
