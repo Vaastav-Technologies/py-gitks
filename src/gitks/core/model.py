@@ -77,5 +77,5 @@ class GitSelf(Sentinel):
     def __init__(self, str_name: str):
         self.str_name = str_name
 
-    def str(self) -> str:
+    def __str__(self) -> str:
         return self.str_name
