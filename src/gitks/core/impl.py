@@ -217,9 +217,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         repo_conf_worktree_ks_file = Path(repo_conf_worktree, "KEYSERVER")
         repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
         repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, "KEYSERVER.URL")
-        repo_conf_worktree_ks_url_file.write_text("SELF")   # denote that the git keyserver is on the same repo
+        repo_conf_worktree_ks_url_file.write_text(str(SELF_REPO))   # denote that the git keyserver is on the same repo
         repo_conf_worktree_ks_path_file = Path(repo_conf_worktree, "KEYSERVER.PATH")
-        repo_conf_worktree_ks_path_file.write_text("SELF")   # denote that the git keyserver is on the same repo
+        repo_conf_worktree_ks_path_file.write_text(str(SELF_REPO))   # denote that the git keyserver is on the same repo
         repo_conf_worktree_git = self.git.git_opts_override(C=[repo_conf_worktree])
         repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file),
                                               str(repo_conf_worktree_ks_path_file))
