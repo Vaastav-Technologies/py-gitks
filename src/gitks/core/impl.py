@@ -354,7 +354,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                                     message=completed_process.stderr,
                                     repo_path=repo_dir,
                                     code=completed_process.returncode,
-                                    details=dict(status="ALREADY_EXISTS", operation="clone",
+                                    details=dict(status="OK", operation="clone",
                                                  out=completed_process.stdout))
         except CalledProcessError as e:
             logger.error(f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`")
