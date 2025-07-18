@@ -187,7 +187,7 @@ class GitKeyServerClient(KeyServerClient, RootDirOp, Protocol):
         :param base_dir: directory where this repo will be cloned into. Defaults to ``__SELF_REPO__``, denoting that
             this repo itself is the git keyserver. ``None`` means to use the default location (determined by
             the implementation).
-        :return: the clone (and hence, connect) result o git keyserver client.
+        :return: the clone (and hence, connect) result of git keyserver client.
         """
 
         ...
