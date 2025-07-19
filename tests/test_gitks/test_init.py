@@ -58,14 +58,6 @@ class TestSimpleInit:
         )
 
     @pytest.mark.parametrize("keys_branch", ["test", "final"])
-    def test_sets_keys_worktree(self, repo_local, worktree_for_test, keys_branch):
-        git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
-        assert (
-            f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"
-            in worktree_details
-        )
-
-    @pytest.mark.parametrize("keys_branch", ["test", "final"])
     def test_sets_keys_worktree_in_base_dir(self, repo_local, worktree_for_test, keys_branch):
         git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
         assert worktree_details[f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"][0].is_relative_to(Path(repo_local).parent)
