@@ -267,7 +267,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         )
         logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
 
-        logger.success("Initialised gitks.")
+        logger.success(f"Initialised {GIT_KS_STR}.")
         logger.trace("Exiting")
 
     @overload
