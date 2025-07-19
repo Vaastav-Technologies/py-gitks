@@ -26,6 +26,7 @@ from gitks.core.impl import (
     BaseDirWorkTreeGenerator,
     WorkTreeGenerator,
 )
+from gitks.core.utils import is_git_repo
 
 
 @pytest.fixture
@@ -34,6 +35,10 @@ def worktree_for_test(tmp_path) -> WorkTreeGenerator:
 
 
 class TestSimpleInit:
+    def test_git_gets_initialised(self, tmp_path, worktree_for_test):
+        self.empty_repo_init_setup(tmp_path, worktree_for_test)
+        assert is_git_repo(tmp_path)
+
     def test_no_err_run(self, repo_local, worktree_for_test):
         self.empty_repo_init_setup(repo_local, worktree_for_test)
 
