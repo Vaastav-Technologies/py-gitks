@@ -19,7 +19,7 @@ from gitks.core.constants import (
     KEYSERVER_CONFIG_KEY,
     GIT_KS_STR,
     GIT_KS_KEYS_BASE_BRANCH,
-    REPO_CONF_BRANCH,
+    REPO_CONF_BRANCH, CAPS_KEYSERVER_STR,
 )
 from gitks.core.impl import (
     WorkTreeGitKeyServerImpl,
@@ -59,7 +59,7 @@ class TestSimpleInit:
     def test_sets_keys_worktree(self, repo_local, worktree_for_test, keys_branch):
         git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
         assert (
-            f"branch refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"
+            f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"
             in worktree_details
         )
 
@@ -281,7 +281,7 @@ def test_register_gitks_as_keyserver_on_success(repo_local, worktree_for_test):
     git = SimpleGitCommand(repo_local)
     assert (
         git.subcmd_unchecked.run(
-            ["config", "--local", "--get", KEYSERVER_CONFIG_KEY], text=True
+            ["show", f"{REPO_CONF_BRANCH}:{CAPS_KEYSERVER_STR}"], text=True
         ).stdout.strip()
         == GIT_KS_STR
     )
