@@ -30,12 +30,22 @@ from gitks.core.constants import (
     FINAL_STR,
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_STR, REPO_CONF_BRANCH, SELF_REPO, CAPS_KEYSERVER_STR, KEYSERVER_URL_F_NAME,
+    GIT_KS_STR,
+    REPO_CONF_BRANCH,
+    SELF_REPO,
+    CAPS_KEYSERVER_STR,
+    KEYSERVER_URL_F_NAME,
     GIT_KS_KEYSERVER_PATH_KEY,
 )
 from gitks.core.errors import GitKsException
-from gitks.core.model import KeyDeleteResult, KeyData, KeyUploadResult, KeyServerConnectResult, GitSelf, \
-    GitKSCloneResult
+from gitks.core.model import (
+    KeyDeleteResult,
+    KeyData,
+    KeyUploadResult,
+    KeyServerConnectResult,
+    GitSelf,
+    GitKSCloneResult,
+)
 from gitks.core.utils import extract_repo_name, is_git_repo
 
 _base_logger = logging.getLogger(__name__)
@@ -48,7 +58,9 @@ class WorkTreeGenerator(Protocol):
     """
 
     @abstractmethod
-    def generate_worktree(self, repo_path: Path, for_branch: str, *for_branches: str, orphan: bool = False) -> Path:
+    def generate_worktree(
+        self, repo_path: Path, for_branch: str, *for_branches: str, orphan: bool = False
+    ) -> Path:
         """
         Generate git work tree for ``for_branch``.
 
@@ -62,8 +74,12 @@ class WorkTreeGenerator(Protocol):
 
 
 class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
-
-    def __init__(self, base_dir: Path = Path.home(), git: GitCommand | None = None, random_dir_len: int = 10):
+    def __init__(
+        self,
+        base_dir: Path = Path.home(),
+        git: GitCommand | None = None,
+        random_dir_len: int = 10,
+    ):
         """
         Generate worktrees for branches in a base directory.
 
@@ -83,13 +99,18 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
         logger.trace("Exiting")
 
     @override
-    def generate_worktree(self, repo_path: Path, for_branch: str, *for_branches: str, orphan: bool = False) -> Path:
+    def generate_worktree(
+        self, repo_path: Path, for_branch: str, *for_branches: str, orphan: bool = False
+    ) -> Path:
         logger.trace("Entering")
         logger.debug(f"repo_path: {repo_path}")
         logger.debug(f"for_branch: {for_branch}")
         logger.debug(f"for_branches: {for_branches}")
         logger.debug(f"orphan: {orphan}")
-        random_dir_str = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(self.random_dir_len))
+        random_dir_str = "".join(
+            random.choice(string.ascii_letters + string.digits)
+            for _ in range(self.random_dir_len)
+        )
         random_base_dir = Path(self.base_dir, random_dir_str)
         logger.debug(f"random_base_dir: {random_base_dir}")
         git = self.git or SimpleGitCommand(repo_path)
@@ -106,9 +127,18 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
             git.subcmd_unchecked.run(cmd_to_run)
             logger.debug(f"worktree created for branch {branch} at path: {branch_dir}")
             if orphan:
-                commit_cmd_to_run = ["commit", "-m", f"initial commit for branch: {branch}", "--allow-empty"]
-                git.git_opts_override(C=[branch_dir]).subcmd_unchecked.run(commit_cmd_to_run)
-                logger.debug(f"Empty commit created for orphan worktree branch: {branch}")
+                commit_cmd_to_run = [
+                    "commit",
+                    "-m",
+                    f"initial commit for branch: {branch}",
+                    "--allow-empty",
+                ]
+                git.git_opts_override(C=[branch_dir]).subcmd_unchecked.run(
+                    commit_cmd_to_run
+                )
+                logger.debug(
+                    f"Empty commit created for orphan worktree branch: {branch}"
+                )
         logger.trace("Exiting")
         return random_base_dir
 
@@ -118,7 +148,6 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
 
 
 class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
-
     def __init__(
         self,
         key_validator: KeyValidator,
@@ -126,7 +155,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         user_name: str | None = None,
         user_email: str | None = None,
         worktree_generator: WorkTreeGenerator | None = None,
-        clone_base_dir: Path = Path.home()
+        clone_base_dir: Path = Path.home(),
     ):
         """
         Get a ``GitKeyServer`` which maintains its keys in branches on worktrees.
@@ -159,7 +188,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 GIT_AUTHOR_EMAIL=user_email
             ).git_envs_override(GIT_COMMITTER_EMAIL=user_email)
         logger.debug(f"supplied worktree_generator: {worktree_generator}")
-        self.worktree_generator = worktree_generator or BaseDirWorkTreeGenerator(Path.home())
+        self.worktree_generator = worktree_generator or BaseDirWorkTreeGenerator(
+            Path.home()
+        )
         logger.debug(f"computed worktree_generator: {worktree_generator}")
         self.clone_base_dir = clone_base_dir
         logger.debug(f"clone_base_dir: {self.clone_base_dir}")
@@ -191,12 +222,19 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             logger.debug(f"Set local git.user.email: {self.user_email}")
 
         logger.debug("Checking if repo configuration branch exists already.")
-        repo_conf_branch = self.git.subcmd_unchecked.run(["branch", "--list", REPO_CONF_BRANCH],
-                                                         text=True).stdout.strip()
+        repo_conf_branch = self.git.subcmd_unchecked.run(
+            ["branch", "--list", REPO_CONF_BRANCH], text=True
+        ).stdout.strip()
         if repo_conf_branch:
-            logger.info(f"Repo configuration branch '{REPO_CONF_BRANCH}' already exists.")
-            logger.debug(f"Checking if worktree for {REPO_CONF_BRANCH} is already present.")
-            worktree_str = self.git.subcmd_unchecked.run(["worktree", "list", "--porcelain", "-z"]).stdout.strip()
+            logger.info(
+                f"Repo configuration branch '{REPO_CONF_BRANCH}' already exists."
+            )
+            logger.debug(
+                f"Checking if worktree for {REPO_CONF_BRANCH} is already present."
+            )
+            worktree_str = self.git.subcmd_unchecked.run(
+                ["worktree", "list", "--porcelain", "-z"]
+            ).stdout.strip()
             # TODO: send a feature request to git to provide worktree with
             #  either a git worktree list --get <branch-pattern>
             #  or simplt git worktree list <branch-pattern>
@@ -205,26 +243,38 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             repo_conf_worktree = repo_conf_worktree_details.get("worktree")
             if not repo_conf_worktree:
                 logger.debug("Repo conf branch worktree does not exist.")
-                repo_conf_worktree = self.worktree_generator.generate_worktree(self.git.root_dir, repo_conf_branch)
-                logger.debug(f"Created repo conf branch worktree")
+                repo_conf_worktree = self.worktree_generator.generate_worktree(
+                    self.git.root_dir, repo_conf_branch
+                )
+                logger.debug("Created repo conf branch worktree")
         else:
             logger.info("Creating repo configuration branch.")
-            repo_conf_worktree = self.worktree_generator.generate_worktree(self.git.root_dir,
-                                                                           REPO_CONF_BRANCH, orphan=True)
-            logger.debug(f"Created repo conf branch worktree")
+            repo_conf_worktree = self.worktree_generator.generate_worktree(
+                self.git.root_dir, REPO_CONF_BRANCH, orphan=True
+            )
+            logger.debug("Created repo conf branch worktree")
         logger.debug(f"repo_conf_worktree path: {repo_conf_worktree}")
         repo_conf_worktree = Path(repo_conf_worktree, REPO_CONF_BRANCH)
         repo_conf_worktree_ks_file = Path(repo_conf_worktree, CAPS_KEYSERVER_STR)
         repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
         repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, KEYSERVER_URL_F_NAME)
-        repo_conf_worktree_ks_url_file.write_text(str(SELF_REPO))   # denote that the git keyserver is on the same repo
-        repo_conf_worktree_git = self.git.git_opts_override(C=[repo_conf_worktree]) # get special separate git for the
-                                                                                    # repo conf branch's worktree
-        repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file))
-        repo_conf_worktree_git.subcmd_unchecked.run(["commit", "-m", "git keyserver registered."])
+        repo_conf_worktree_ks_url_file.write_text(
+            str(SELF_REPO)
+        )  # denote that the git keyserver is on the same repo
+        repo_conf_worktree_git = self.git.git_opts_override(
+            C=[repo_conf_worktree]
+        )  # get special separate git for the
+        # repo conf branch's worktree
+        repo_conf_worktree_git.add_subcmd.add(
+            str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file)
+        )
+        repo_conf_worktree_git.subcmd_unchecked.run(
+            ["commit", "-m", "git keyserver registered."]
+        )
         logger.info("Central configuration saved.")
-        repo_conf_worktree_git.subcmd_unchecked.run(["config", "--local", GIT_KS_KEYSERVER_PATH_KEY,
-                                                     str(SELF_REPO)])
+        repo_conf_worktree_git.subcmd_unchecked.run(
+            ["config", "--local", GIT_KS_KEYSERVER_PATH_KEY, str(SELF_REPO)]
+        )
         logger.info("Local configuration saved.")
 
         logger.debug("Checking if supplied keys base branch exists already.")
@@ -234,14 +284,19 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         keys_test_branch = f"{keys_base_branch}/{TEST_STR}"
         keys_final_branch = f"{keys_base_branch}/{FINAL_STR}"
-        if keys_base_branch in existing_branches or keys_test_branch in existing_branches or keys_final_branch in existing_branches:
+        if (
+            keys_base_branch in existing_branches
+            or keys_test_branch in existing_branches
+            or keys_final_branch in existing_branches
+        ):
             errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
         logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
-        worktree_path = self.worktree_generator.generate_worktree(self.git.root_dir, keys_test_branch, keys_final_branch,
-                                                  orphan=True)
+        worktree_path = self.worktree_generator.generate_worktree(
+            self.git.root_dir, keys_test_branch, keys_final_branch, orphan=True
+        )
         logger.debug(f"Keys base branch worktrees generated in {worktree_path}")
         logger.debug(f"{keys_test_branch} -> {worktree_path / keys_test_branch}")
         logger.debug(f"{keys_base_branch} -> {worktree_path / keys_base_branch}")
@@ -250,7 +305,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, "KEYSERVER.BRANCH")
         repo_conf_worktree_ks_branch_file.write_text(keys_base_branch)
         repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_branch_file))
-        repo_conf_worktree_git.subcmd_unchecked.run(["commit", "-m", "git keyserver base branch"])
+        repo_conf_worktree_git.subcmd_unchecked.run(
+            ["commit", "-m", "git keyserver base branch"]
+        )
         logger.debug(f"Registered {GIT_KS_BRANCH_CONFIG_KEY}={keys_base_branch}")
         logger.info(f"key base branch {keys_base_branch} created.")
 
@@ -272,16 +329,21 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
     @overload
     @override
-    def clone(self, *, url: GitSelf = SELF_REPO, base_dir: GitSelf = SELF_REPO) -> GitKSCloneResult:
-        ...
+    def clone(
+        self, *, url: GitSelf = SELF_REPO, base_dir: GitSelf = SELF_REPO
+    ) -> GitKSCloneResult: ...
 
     @overload
     @override
-    def clone(self, *, url: str, base_dir: Path | None = None) -> GitKSCloneResult:
-        ...
+    def clone(self, *, url: str, base_dir: Path | None = None) -> GitKSCloneResult: ...
 
     @override
-    def clone(self, *, url: str | GitSelf = SELF_REPO, base_dir: Path | None | GitSelf = SELF_REPO) -> GitKSCloneResult:
+    def clone(
+        self,
+        *,
+        url: str | GitSelf = SELF_REPO,
+        base_dir: Path | None | GitSelf = SELF_REPO,
+    ) -> GitKSCloneResult:
         """
         Examples:
 
@@ -321,11 +383,13 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             message = "No clone needed as repo itself is the keyserver."
             logger.notice(message)
             logger.info("No-op")
-            return GitKSCloneResult(connected=True,
-                                    message=message,
-                                    repo_path=self.repo_root_dir,
-                                    code=200,
-                                    details=dict(status="OK", operation="NOOP"))
+            return GitKSCloneResult(
+                connected=True,
+                message=message,
+                repo_path=self.repo_root_dir,
+                code=200,
+                details=dict(status="OK", operation="NOOP"),
+            )
 
         base_dir = base_dir or self.clone_base_dir
         logger.debug(f"computed base_dir: {base_dir}")
@@ -337,30 +401,46 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if is_git_repo(repo_dir):
             message = f"Repo already cloned at {repo_dir}"
             logger.notice(f"{message}. skipping clone..")
-            return GitKSCloneResult(connected=True,
-                                    message=message,
-                                    repo_path=repo_dir,
-                                    code=200,
-                                    details=dict(status="ALREADY_EXISTS", operation="NOOP"))
+            return GitKSCloneResult(
+                connected=True,
+                message=message,
+                repo_path=repo_dir,
+                code=200,
+                details=dict(status="ALREADY_EXISTS", operation="NOOP"),
+            )
 
         logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
         try:
             clone_cmd = ["git", "clone", url, str(repo_dir)]
             logger.debug(f"Running: {clone_cmd}")
-            completed_process = subprocess.run(clone_cmd, capture_output=True,
-                                               check=True, text=True)
+            completed_process = subprocess.run(
+                clone_cmd, capture_output=True, check=True, text=True
+            )
             logger.trace("Exiting")
-            return GitKSCloneResult(connected=True,
-                                    message=completed_process.stderr,
-                                    repo_path=repo_dir,
-                                    code=completed_process.returncode,
-                                    details=dict(status="OK", operation="clone",
-                                                 out=completed_process.stdout))
+            return GitKSCloneResult(
+                connected=True,
+                message=completed_process.stderr,
+                repo_path=repo_dir,
+                code=completed_process.returncode,
+                details=dict(
+                    status="OK", operation="clone", out=completed_process.stdout
+                ),
+            )
         except CalledProcessError as e:
-            logger.error(f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`")
-            raise GitKsException(f"Error while cloning repo: {repo_name}", exit_code=e.returncode,
-                                 connected=False, message=e.stderr, code=e.returncode, status="CLONE_ERROR",
-                                 operation="clone", out=e.output, cmd=e.cmd) from e
+            logger.error(
+                f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`"
+            )
+            raise GitKsException(
+                f"Error while cloning repo: {repo_name}",
+                exit_code=e.returncode,
+                connected=False,
+                message=e.stderr,
+                code=e.returncode,
+                status="CLONE_ERROR",
+                operation="clone",
+                out=e.output,
+                cmd=e.cmd,
+            ) from e
 
     def register(self, url: str) -> KeyServerConnectResult:
         if url == str(SELF_REPO):
@@ -397,7 +477,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 @typing.no_type_check
 def parse_git_worktree_branches_only(data: bytes):
     worktrees = {}
-    entries = data.split(b'\0')
+    entries = data.split(b"\0")
 
     current = {}
     for entry in entries:
@@ -409,8 +489,8 @@ def parse_git_worktree_branches_only(data: bytes):
             current = {}
             continue
 
-        if b' ' in entry:
-            key, value = entry.split(b' ', 1)
+        if b" " in entry:
+            key, value = entry.split(b" ", 1)
             current[key.decode()] = value.decode()
         else:
             current[entry.decode()] = True  # flag like 'prunable' or 'locked'

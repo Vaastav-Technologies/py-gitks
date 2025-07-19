@@ -4,6 +4,7 @@
 """
 utility methods related to ``gitks``.
 """
+
 import os
 from urllib.parse import urlparse
 from pathlib import Path
@@ -52,10 +53,10 @@ def is_git_repo(path: Path) -> bool:
         return False
     try:
         subprocess.run(
-            ['git', '-C', str(path), 'rev-parse', '--is-inside-work-tree'],
+            ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            check=True
+            check=True,
         )
         return True
     except subprocess.CalledProcessError:

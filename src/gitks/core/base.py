@@ -12,8 +12,14 @@ from typing import Protocol, overload
 from vt.utils.commons.commons.op import RootDirOp
 
 from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR, SELF_REPO
-from gitks.core.model import KeyUploadResult, KeyData, KeyDeleteResult, KeyServerConnectResult, GitKSCloneResult, \
-    GitSelf
+from gitks.core.model import (
+    KeyUploadResult,
+    KeyData,
+    KeyDeleteResult,
+    KeyServerConnectResult,
+    GitKSCloneResult,
+    GitSelf,
+)
 
 
 class KeyValidator(Protocol):
@@ -149,7 +155,9 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
 
     @abstractmethod
     def init(
-        self, keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH, git_ks_dir: Path = GIT_KS_DIR
+        self,
+        keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH,
+        git_ks_dir: Path = GIT_KS_DIR,
     ) -> None:
         """
         Initialise the gitks repo. Initialises:
@@ -170,16 +178,21 @@ class GitKeyServerClient(KeyServerClient, RootDirOp, Protocol):
 
     @overload
     @abstractmethod
-    def clone(self, *, url: GitSelf = SELF_REPO, base_dir: GitSelf = SELF_REPO) -> GitKSCloneResult:
-        ...
+    def clone(
+        self, *, url: GitSelf = SELF_REPO, base_dir: GitSelf = SELF_REPO
+    ) -> GitKSCloneResult: ...
 
     @overload
     @abstractmethod
-    def clone(self, *, url: str, base_dir: Path | None = None) -> GitKSCloneResult:
-        ...
+    def clone(self, *, url: str, base_dir: Path | None = None) -> GitKSCloneResult: ...
 
     @abstractmethod
-    def clone(self, *, url: str | GitSelf = SELF_REPO, base_dir: Path | None | GitSelf = SELF_REPO) -> GitKSCloneResult:
+    def clone(
+        self,
+        *,
+        url: str | GitSelf = SELF_REPO,
+        base_dir: Path | None | GitSelf = SELF_REPO,
+    ) -> GitKSCloneResult:
         """
         Clone the git repo acting as a keyserver into a specified ``base_dir``.
 
