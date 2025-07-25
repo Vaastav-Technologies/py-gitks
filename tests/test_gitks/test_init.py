@@ -121,28 +121,43 @@ class TestSimpleInit:
         return git, user_email, user_name
 
 
-def test_no_err_when_main_branches_found(repo_local, worktree_for_test):
+@pytest.mark.parametrize("main_branch", [True, False])
+def test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_test, main_branch):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
         None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
+        user_name = user_name,
+        user_email = user_email,
         worktree_generator=worktree_for_test,
     )
     git = SimpleGitCommand(repo_local)
-    git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
-    git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
-    a_file = Path(repo_local, "a-file")
-    a_file.write_text("a-file")
-    git.add_subcmd.add(".")
-    git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
+    if main_branch:
+        git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
+        git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
+        a_file = Path(repo_local, "a-file")
+        a_file.write_text("a-file")
+        git.add_subcmd.add(".")
+        git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
     ks.init()
 
 
-def test_gitks_dir_created_when_main_branches_found(repo_local, worktree_for_test):
-    test_no_err_when_main_branches_found(repo_local, worktree_for_test)
+@pytest.mark.parametrize("main_branch", [True, False])
+def test_presence_of_main_branch_does_not_affect_gitks_dir_creation(repo_local, worktree_for_test, main_branch):
+    test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_test, main_branch)
     assert Path(repo_local, GIT_KS_DIR, TEST_STR).exists()
     assert Path(repo_local, GIT_KS_DIR, FINAL_STR).exists()
+
+
+@pytest.mark.parametrize("main_branch", [True, False])
+def test_presence_of_main_branch_does_not_affect_gitks_branch_creation(repo_local, worktree_for_test, main_branch):
+    test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_test, main_branch)
+    git = SimpleGitCommand(repo_local)
+    assert git.subcmd_unchecked.run(["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{TEST_STR}"],
+                                    text=True).stdout.strip()
+    assert git.subcmd_unchecked.run(["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{FINAL_STR}"],
+                                    text=True).stdout.strip()
 
 
 def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test):
@@ -156,6 +171,7 @@ def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test
         worktree_generator=worktree_for_test,
     )
     ano_gitks_home = Path(".ano-gpg-home", ".ano-gitks")
+    ano_gitks_home = ano_gitks_home / 'yo'
     ks.init(git_ks_dir=ano_gitks_home)
     git = SimpleGitCommand(repo_local)
     assert git.subcmd_unchecked.run(
