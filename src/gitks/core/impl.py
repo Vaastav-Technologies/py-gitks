@@ -496,7 +496,14 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
     @override
     def send_key(self, public_key: bytes | str) -> KeyUploadResult:
-        pass
+        logger.trace("Entering")
+        logger.debug("Starting section of supplied "
+                     "public_key: %.10s", public_key)  # not using f-string to make this lazy
+        logger.debug("Testing public_key data for validity.")
+        self.key_validator.validate_key(public_key)
+        logger.info("Supplied public key is valid.")
+
+        logger.trace("Exiting")
 
     @override
     def receive_key(self, key_id: str) -> bytes | str:
