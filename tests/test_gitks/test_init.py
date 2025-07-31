@@ -16,7 +16,6 @@ from gitks.core.constants import (
     TEST_STR,
     FINAL_STR,
     GIT_KS_DIR_CONFIG_KEY,
-    KEYSERVER_CONFIG_KEY,
     GIT_KS_STR,
     GIT_KS_KEYS_BASE_BRANCH,
     REPO_CONF_BRANCH,
