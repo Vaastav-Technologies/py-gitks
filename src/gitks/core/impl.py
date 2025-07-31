@@ -415,6 +415,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             completed_process = subprocess.run(
                 clone_cmd, capture_output=True, check=True, text=True
             )
+            logger.success(f"GitKeyserver repo cloned in: {repo_dir}.")
             logger.trace("Exiting")
             return GitKSCloneResult(
                 connected=True,
