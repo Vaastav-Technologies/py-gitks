@@ -19,7 +19,9 @@ from gitks.core.constants import (
     KEYSERVER_CONFIG_KEY,
     GIT_KS_STR,
     GIT_KS_KEYS_BASE_BRANCH,
-    REPO_CONF_BRANCH, CAPS_KEYSERVER_STR,
+    REPO_CONF_BRANCH,
+    CAPS_KEYSERVER_STR,
+    KEYSERVER_BRANCH_F_NAME,
 )
 from gitks.core.impl import (
     WorkTreeGitKeyServerImpl,
@@ -196,7 +198,7 @@ def test_centrally_registers_branch_name_if_different_supplied(
     git = SimpleGitCommand(repo_local)
     assert (
         git.subcmd_unchecked.run(
-            ["show", f"{REPO_CONF_BRANCH}:KEYSERVER.BRANCH"], text=True
+            ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"], text=True
         ).stdout.strip()
         == ano_gitks_branch
     )
