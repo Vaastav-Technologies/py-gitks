@@ -417,67 +417,69 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             message = "No clone needed as repo itself is the keyserver."
             logger.notice(message)
             logger.info("No-op")
-            return GitKSCloneResult(
+            retval = GitKSCloneResult(
                 connected=True,
                 message=message,
                 repo_path=self.repo_root_dir,
                 code=200,
                 details=dict(status="OK", operation="NOOP"),
             )
-
-        base_dir = base_dir or self.clone_base_dir
-        logger.debug(f"computed base_dir: {base_dir}")
-        logger.debug("Trying to clone the repo in desired base_dir.")
-        repo_name = extract_repo_name(url)
-        logger.debug(f"Extracted repo name: {repo_name}")
-        repo_dir = Path(base_dir, repo_name)
-        logger.debug(f"repo_dir: {repo_dir}")
-        if is_git_repo(repo_dir):
-            message = f"Repo already cloned at {repo_dir}"
-            logger.notice(f"{message}. skipping clone..")
-            return GitKSCloneResult(
-                connected=True,
-                message=message,
-                repo_path=repo_dir,
-                code=200,
-                details=dict(status="ALREADY_EXISTS", operation="NOOP"),
-            )
-
-        logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
-        try:
-            clone_cmd = ["git", "clone", str(url), str(repo_dir)]
-            logger.debug(f"Running: {clone_cmd}")
-            completed_process = subprocess.run(
-                clone_cmd, capture_output=True, check=True, text=True
-            )
-            logger.info(f"GitKeyserver repo cloned in: {repo_dir}.")
-            self.set_local_user_info(repo_dir)
-            logger.success("GitKeyserver cloned.")
-            logger.trace("Exiting")
-            return GitKSCloneResult(
-                connected=True,
-                message=completed_process.stderr,
-                repo_path=repo_dir,
-                code=completed_process.returncode,
-                details=dict(
-                    status="OK", operation="clone", out=completed_process.stdout
-                ),
-            )
-        except CalledProcessError as e:
-            logger.error(
-                f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`"
-            )
-            raise GitKsException(
-                f"Error while cloning repo `{repo_name}` from url `{url}`",
-                exit_code=e.returncode,
-                connected=False,
-                message=e.stderr,
-                code=e.returncode,
-                status="CLONE_ERROR",
-                operation="clone",
-                out=e.output,
-                cmd=e.cmd,
-            ) from e
+        else:
+            base_dir = base_dir or self.clone_base_dir
+            logger.debug(f"computed base_dir: {base_dir}")
+            logger.info("Trying to clone the repo in desired base_dir.")
+            repo_name = extract_repo_name(url)
+            logger.debug(f"Extracted repo name: {repo_name}")
+            repo_dir = Path(base_dir, repo_name)
+            logger.debug(f"repo_dir: {repo_dir}")
+            if is_git_repo(repo_dir):
+                message = f"Repo already cloned at {repo_dir}"
+                logger.notice(f"{message}. skipping clone..")
+                retval = GitKSCloneResult(
+                    connected=True,
+                    message=message,
+                    repo_path=repo_dir,
+                    code=200,
+                    details=dict(status="ALREADY_EXISTS", operation="NOOP"),
+                )
+            else:
+                logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
+                clone_cmd = ["git", "clone", str(url), str(repo_dir)]
+                logger.debug(f"Running: {clone_cmd}")
+                try:
+                    completed_process = subprocess.run(
+                        clone_cmd, capture_output=True, check=True, text=True
+                    )
+                    logger.info(f"GitKeyserver repo cloned in: {repo_dir}.")
+                    self.set_local_user_info(repo_dir)
+                except CalledProcessError as e:
+                    logger.error(
+                        f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`"
+                    )
+                    raise GitKsException(
+                        f"Error while cloning repo `{repo_name}` from url `{url}`",
+                        exit_code=e.returncode,
+                        connected=False,
+                        message=e.stderr,
+                        code=e.returncode,
+                        status="CLONE_ERROR",
+                        operation="clone",
+                        out=e.output,
+                        cmd=e.cmd,
+                    ) from e
+                else:
+                    logger.success("GitKeyserver cloned.")
+                    retval = GitKSCloneResult(
+                        connected=True,
+                        message=completed_process.stderr,
+                        repo_path=repo_dir,
+                        code=completed_process.returncode,
+                        details=dict(
+                            status="OK", operation="clone", out=completed_process.stdout
+                        ),
+                    )
+        logger.trace("Exiting")
+        return retval
 
     def register(self, url: str) -> KeyServerConnectResult:
         logger.trace("Entering")
@@ -488,6 +490,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         else:
             logger.debug(f"Registering a clone at url: {url}")
             retval = self.clone(url=url)
+        logger.success(f"{GIT_KS_STR} connected.")
         logger.trace("Exiting")
         return retval
 
