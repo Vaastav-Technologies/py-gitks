@@ -175,7 +175,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Supplied repo_root_dir: {repo_root_dir}")
         self.repo_root_dir = repo_root_dir or Path.cwd()
         logger.debug(f"computed repo_root_dir: {repo_root_dir}")
-        logger.trace("Exiting")
         self.git = SimpleGitCommand(self.repo_root_dir)
         self.user_name = user_name
         if user_name:  # else autodetect
