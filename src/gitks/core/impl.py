@@ -257,10 +257,12 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         repo_conf_worktree = Path(repo_conf_worktree, REPO_CONF_BRANCH)
         repo_conf_worktree_ks_file = Path(repo_conf_worktree, CAPS_KEYSERVER_STR)
         repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
+        logger.debug(f"{GIT_KS_STR} registered as the keyserver in {repo_conf_worktree_ks_file}")
         repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, KEYSERVER_URL_F_NAME)
         repo_conf_worktree_ks_url_file.write_text(
             str(SELF_REPO)
         )  # denote that the git keyserver is on the same repo
+        logger.debug(f"{SELF_REPO} registered as the git keyserver repo path in {repo_conf_worktree_ks_url_file}")
         repo_conf_worktree_git = self.git.git_opts_override(
             C=[repo_conf_worktree]
         )  # get special separate git for the
@@ -268,6 +270,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         repo_conf_worktree_git.add_subcmd.add(
             str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file)
         )
+        logger.debug(f"`{repo_conf_worktree_ks_file}` and `{repo_conf_worktree_ks_url_file}` added to repo "
+                     "conf worktree.")
         repo_conf_worktree_git.subcmd_unchecked.run(
             ["commit", "-m", "git keyserver registered."]
         )
@@ -304,7 +308,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Storing {GIT_KS_STR} branch configuration in repo conf branch.")
         repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, KEYSERVER_BRANCH_F_NAME)
         repo_conf_worktree_ks_branch_file.write_text(keys_base_branch)
+        logger.debug(f"Noted {keys_base_branch} as keys_base_branch in {repo_conf_worktree_ks_branch_file}")
         repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_branch_file))
+        logger.debug(f"Indexed {repo_conf_worktree_ks_branch_file} in worktree {repo_conf_worktree}")
         repo_conf_worktree_git.subcmd_unchecked.run(
             ["commit", "-m", "git keyserver base branch"]
         )
@@ -312,11 +318,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.info(f"key base branch {keys_base_branch} created.")
 
         git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
-        logger.debug(f"attempting to create test directory: {git_ks_test_dir}")
+        logger.debug(f"attempting to create keyserver keys test directory: {git_ks_test_dir}")
         git_ks_test_dir.mkdir(parents=True)
         logger.info(f"Directory {git_ks_test_dir} created.")
         git_ks_final_dir = Path(self.root_dir, git_ks_dir, FINAL_STR)
-        logger.debug(f"attempting to create final directory: {git_ks_final_dir}")
+        logger.debug(f"attempting to create keyserver keys final directory: {git_ks_final_dir}")
         git_ks_final_dir.mkdir(parents=True)
         logger.info(f"Directory {git_ks_final_dir} created.")
         self.git.subcmd_unchecked.run(
