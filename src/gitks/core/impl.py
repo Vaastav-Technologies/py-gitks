@@ -214,16 +214,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         self.git.subcmd_unchecked.run(["init"])
         logger.debug("repo initialised.")
 
-        if self.user_name:
-            self.git.subcmd_unchecked.run(
-                ["config", "--local", "user.name", self.user_name]
-            )
-            logger.debug(f"Set local git.user.name: {self.user_name}")
-        if self.user_email:
-            self.git.subcmd_unchecked.run(
-                ["config", "--local", "user.email", self.user_email]
-            )
-            logger.debug(f"Set local git.user.email: {self.user_email}")
+        self.set_local_user_info()
 
         logger.debug("Checking if repo configuration branch exists already.")
         repo_conf_branch = self.git.subcmd_unchecked.run(
@@ -337,6 +328,39 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.success(f"Initialised {GIT_KS_STR}.")
         logger.trace("Exiting")
 
+    def set_local_user_info(self, repo_root: Path | None = None):
+        """
+        Set user.name and user.email in git repo identified by ``git`` param.
+
+        :param repo_root: operate on supplied repo_root else directly operate on the instance's ``self.git`` repo root.
+        """
+        logger.trace("Entering")
+        logger.debug(f"repo_root: {repo_root}")
+        git = self.git
+        if repo_root:
+            git = git.git_opts_override(C=[repo_root])
+            logger.debug(f"Obtained repo_root specific git instance: {git}")
+
+        if self.user_name:
+            logger.debug("user.name supplied for setting.")
+            git.subcmd_unchecked.run(
+                ["config", "--local", "user.name", self.user_name]
+            )
+            logger.debug(f"Set local git.user.name: {self.user_name}")
+            logger.info("Supplied user.name set locally.")
+        else:
+            logger.info("No user.name supplied for setting. Proceeding with default.")
+        if self.user_email:
+            logger.debug("user.email supplied for setting.")
+            git.subcmd_unchecked.run(
+                ["config", "--local", "user.email", self.user_email]
+            )
+            logger.debug(f"Set local git.user.email: {self.user_email}")
+            logger.info("Supplied user.email set locally.")
+        else:
+            logger.info("No user.email supplied for setting. Proceeding with default.")
+        logger.trace("Exiting")
+
     @overload
     @override
     def clone(
@@ -426,7 +450,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             completed_process = subprocess.run(
                 clone_cmd, capture_output=True, check=True, text=True
             )
-            logger.success(f"GitKeyserver repo cloned in: {repo_dir}.")
+            logger.info(f"GitKeyserver repo cloned in: {repo_dir}.")
+            self.set_local_user_info(repo_dir)
+            logger.success("GitKeyserver cloned.")
             logger.trace("Exiting")
             return GitKSCloneResult(
                 connected=True,
@@ -442,7 +468,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`"
             )
             raise GitKsException(
-                f"Error while cloning repo: {repo_name}",
+                f"Error while cloning repo `{repo_name}` from url `{url}`",
                 exit_code=e.returncode,
                 connected=False,
                 message=e.stderr,
