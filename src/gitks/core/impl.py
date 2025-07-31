@@ -445,7 +445,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
         try:
-            clone_cmd = ["git", "clone", url, str(repo_dir)]
+            clone_cmd = ["git", "clone", str(url), str(repo_dir)]
             logger.debug(f"Running: {clone_cmd}")
             completed_process = subprocess.run(
                 clone_cmd, capture_output=True, check=True, text=True
