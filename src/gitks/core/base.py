@@ -78,10 +78,11 @@ class KeyReceiver(HasKeyValidator, Protocol):
     @abstractmethod
     def receive_key(self, key_id: str) -> bytes | str:
         """
-        Send key to a keyserver.
+        Receive key from a keyserver.
 
         :param key_id: exact key-id to receive from the keyserver.
         :return: ``True`` if key was uploaded. ``False`` if key was not uploaded.
+        :raise KeyError: if queried key does not exist on the server.
         :raise ValueError: If key fails using the rules defined by the key validator.
         :raise SyntaxError: If key data is malformed.
         """
@@ -97,7 +98,7 @@ class KeySearcher(Protocol):
     def search_keys(self, key_search_str: str) -> list[KeyData]:
         """
         :param key_search_str: a search expression that can be used to search keys from the keyserver.
-        :return: list of keys fetchable form the supplied ``key_search_str``.
+        :return: list of keys fetchable from the supplied ``key_search_str``.
         """
         ...
 
