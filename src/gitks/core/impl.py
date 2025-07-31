@@ -36,6 +36,7 @@ from gitks.core.constants import (
     CAPS_KEYSERVER_STR,
     KEYSERVER_URL_F_NAME,
     GIT_KS_KEYSERVER_PATH_KEY,
+    KEYSERVER_BRANCH_F_NAME,
 )
 from gitks.core.errors import GitKsException
 from gitks.core.model import (
@@ -301,7 +302,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"{keys_base_branch} -> {worktree_path / keys_base_branch}")
 
         logger.debug(f"Storing {GIT_KS_STR} branch configuration in repo conf branch.")
-        repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, "KEYSERVER.BRANCH")
+        repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, KEYSERVER_BRANCH_F_NAME)
         repo_conf_worktree_ks_branch_file.write_text(keys_base_branch)
         repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_branch_file))
         repo_conf_worktree_git.subcmd_unchecked.run(
