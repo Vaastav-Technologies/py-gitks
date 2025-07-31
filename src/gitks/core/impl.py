@@ -176,7 +176,10 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Supplied repo_root_dir: {repo_root_dir}")
         self.repo_root_dir = repo_root_dir or Path.cwd()
         logger.debug(f"computed repo_root_dir: {repo_root_dir}")
+        logger.debug(f"Supplied user_name: {user_name}")
+        logger.debug(f"Supplied user_email: {user_email}")
         self.git = SimpleGitCommand(self.repo_root_dir)
+        logger.debug(f"Obtained git instance: {self.git}")
         self.user_name = user_name
         if user_name:  # else autodetect
             self.git = self.git.git_envs_override(
@@ -187,6 +190,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             self.git = self.git.git_envs_override(
                 GIT_AUTHOR_EMAIL=user_email
             ).git_envs_override(GIT_COMMITTER_EMAIL=user_email)
+        logger.debug(f"Obtained git instance: {self.git}")
         logger.debug(f"supplied worktree_generator: {worktree_generator}")
         self.worktree_generator = worktree_generator or BaseDirWorkTreeGenerator(
             Path.home()
