@@ -450,9 +450,16 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             ) from e
 
     def register(self, url: str) -> KeyServerConnectResult:
+        logger.trace("Entering")
+        logger.debug(f"url: {url}")
         if url == str(SELF_REPO):
-            return self.clone(url=SELF_REPO)
-        return self.clone(url=url)
+            logger.debug(f"Registering self repo {SELF_REPO}")
+            retval = self.clone(url=SELF_REPO)
+        else:
+            logger.debug(f"Registering a clone at url: {url}")
+            retval = self.clone(url=url)
+        logger.trace("Exiting")
+        return retval
 
     @override
     def send_key(self, public_key: bytes | str) -> KeyUploadResult:
