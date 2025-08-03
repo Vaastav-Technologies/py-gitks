@@ -227,21 +227,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             logger.debug(
                 f"Checking if worktree for {REPO_CONF_BRANCH} is already present."
             )
-            worktree_str = self.git.subcmd_unchecked.run(
-                ["worktree", "list", "--porcelain", "-z"]
-            ).stdout.strip()
-            # TODO: send a feature request to git to provide worktree with
-            #  either a git worktree list --get <branch-pattern>
-            #  or simplt git worktree list <branch-pattern>
-            worktree_map = parse_git_worktree_branches_only(worktree_str)
-            repo_conf_worktree_details = worktree_map.get(repo_conf_branch)
-            repo_conf_worktree = repo_conf_worktree_details.get("worktree")
-            if not repo_conf_worktree:
-                logger.debug("Repo conf branch worktree does not exist.")
-                repo_conf_worktree = self.worktree_generator.generate_worktree(
-                    self.git.root_dir, repo_conf_branch
-                )
-                logger.debug("Created repo conf branch worktree")
+            repo_conf_worktree = self.get_or_create_workspace(repo_conf_branch)
         else:
             logger.info("Creating repo configuration branch.")
             repo_conf_worktree = self.worktree_generator.generate_worktree(
@@ -327,6 +313,46 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         logger.success(f"Initialised {GIT_KS_STR}.")
         logger.trace("Exiting")
+
+    def get_or_create_workspace(self, branch_name: str):
+        """
+        :param branch_name: name of the branch tp get or create worktree for.
+        :return: the worktree path for an existing worktree for branch ``branch_name`` or creates one if the worktree
+        doesn't exist and then returns the path to it.
+        """
+        logger.trace("Entering")
+        logger.debug(f"branch_name: {branch_name}")
+        branch_worktree = self.get_existing_workspace(branch_name)
+        if not branch_worktree:
+            logger.debug("Repo conf branch worktree does not exist.")
+            branch_worktree = self.worktree_generator.generate_worktree(
+                self.git.root_dir, branch_name
+            )
+            logger.debug("Created repo conf branch worktree")
+        logger.trace("Exiting")
+        return branch_worktree
+
+    def get_existing_workspace(self, branch_name: str) -> Path | None:
+        """
+        Get path to existing workspace for ``branch_name``.
+
+        :param branch_name: branch to query the workspace for.
+        :return: Path to the workspace for ``branch_name`` or ``None`` if the said workspace does not exist.
+        """
+        logger.trace("Entering")
+        logger.debug(f"branch_name: {branch_name}")
+        worktree_str = self.git.subcmd_unchecked.run(
+            ["worktree", "list", "--porcelain", "-z"]
+        ).stdout.strip()
+        # TODO: send a feature request to git to provide worktree with
+        #  either a git worktree list --get <branch-pattern>
+        #  or simplt git worktree list <branch-pattern>
+        worktree_map = parse_git_worktree_branches_only(worktree_str)
+        repo_conf_worktree_details = worktree_map.get(branch_name)
+        repo_conf_worktree = repo_conf_worktree_details.get("worktree")
+        logger.debug(f"worktree for branch {branch_name}: {repo_conf_worktree}")
+        logger.trace("Exiting")
+        return repo_conf_worktree
 
     def set_local_user_info(self, repo_root: Path | None = None):
         """
