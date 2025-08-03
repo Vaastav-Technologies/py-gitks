@@ -67,7 +67,7 @@ class WorkTreeGenerator(Protocol):
 
         :param repo_path: path to the repo root directory.
         :param for_branch: the branch for which git worktree needs to be generated.
-        :param orphan: Create an orphan branch and then the worktree? This puts and empty commit on the orphan worktree
+        :param orphan: Create an orphan branch and then the worktree. This puts and empty commit on the orphan worktree
             to make it persistent. The worktree is erased in the next run if it has no commits.
         :return: Path to the generated worktree base directory.
         """
