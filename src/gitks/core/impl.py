@@ -216,6 +216,44 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         self.set_local_user_info()
 
+        logger.debug("Checking if supplied keys base branch exists already.")
+        existing_branches = self.git.subcmd_unchecked.run(
+            ["branch", "--list", f"{keys_base_branch}*"], text=True
+        ).stdout.split()
+
+        keys_test_branch = f"{keys_base_branch}/{TEST_STR}"
+        keys_final_branch = f"{keys_base_branch}/{FINAL_STR}"
+        if (
+            keys_base_branch in existing_branches
+            or keys_test_branch in existing_branches
+            or keys_final_branch in existing_branches
+        ):
+            errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
+            logger.error(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
+
+        logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
+        worktree_path = self.worktree_generator.generate_worktree(
+            self.git.root_dir, keys_test_branch, keys_final_branch, orphan=True
+        )
+        logger.debug(f"Keys base branch worktrees generated in {worktree_path}")
+        logger.debug(f"{keys_test_branch} -> {worktree_path / keys_test_branch}")
+        logger.debug(f"{keys_base_branch} -> {worktree_path / keys_base_branch}")
+        logger.info(f"key base branch {keys_base_branch} created.")
+
+        git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
+        logger.debug(f"attempting to create keyserver keys test directory: {git_ks_test_dir}")
+        git_ks_test_dir.mkdir(parents=True)
+        logger.info(f"Directory {git_ks_test_dir} created.")
+        git_ks_final_dir = Path(self.root_dir, git_ks_dir, FINAL_STR)
+        logger.debug(f"attempting to create keyserver keys final directory: {git_ks_final_dir}")
+        git_ks_final_dir.mkdir(parents=True)
+        logger.info(f"Directory {git_ks_final_dir} created.")
+        self.git.subcmd_unchecked.run(
+            ["config", "--local", GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)]
+        )
+        logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
+
         logger.debug("Checking if repo configuration branch exists already.")
         repo_conf_branch = self.git.subcmd_unchecked.run(
             ["branch", "--list", REPO_CONF_BRANCH], text=True
@@ -261,31 +299,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             ["config", "--local", GIT_KS_KEYSERVER_PATH_KEY, str(SELF_REPO)]
         )
         logger.info("Local configuration saved.")
-
-        logger.debug("Checking if supplied keys base branch exists already.")
-        existing_branches = self.git.subcmd_unchecked.run(
-            ["branch", "--list", f"{keys_base_branch}*"], text=True
-        ).stdout.split()
-
-        keys_test_branch = f"{keys_base_branch}/{TEST_STR}"
-        keys_final_branch = f"{keys_base_branch}/{FINAL_STR}"
-        if (
-            keys_base_branch in existing_branches
-            or keys_test_branch in existing_branches
-            or keys_final_branch in existing_branches
-        ):
-            errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
-            logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
-
-        logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
-        worktree_path = self.worktree_generator.generate_worktree(
-            self.git.root_dir, keys_test_branch, keys_final_branch, orphan=True
-        )
-        logger.debug(f"Keys base branch worktrees generated in {worktree_path}")
-        logger.debug(f"{keys_test_branch} -> {worktree_path / keys_test_branch}")
-        logger.debug(f"{keys_base_branch} -> {worktree_path / keys_base_branch}")
-
         logger.debug(f"Storing {GIT_KS_STR} branch configuration in repo conf branch.")
         repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, KEYSERVER_BRANCH_F_NAME)
         repo_conf_worktree_ks_branch_file.write_text(keys_base_branch)
@@ -296,20 +309,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             ["commit", "-m", "git keyserver base branch"]
         )
         logger.debug(f"Registered {GIT_KS_BRANCH_CONFIG_KEY}={keys_base_branch}")
-        logger.info(f"key base branch {keys_base_branch} created.")
-
-        git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
-        logger.debug(f"attempting to create keyserver keys test directory: {git_ks_test_dir}")
-        git_ks_test_dir.mkdir(parents=True)
-        logger.info(f"Directory {git_ks_test_dir} created.")
-        git_ks_final_dir = Path(self.root_dir, git_ks_dir, FINAL_STR)
-        logger.debug(f"attempting to create keyserver keys final directory: {git_ks_final_dir}")
-        git_ks_final_dir.mkdir(parents=True)
-        logger.info(f"Directory {git_ks_final_dir} created.")
-        self.git.subcmd_unchecked.run(
-            ["config", "--local", GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)]
-        )
-        logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
 
         logger.success(f"Initialised {GIT_KS_STR}.")
         logger.trace("Exiting")
