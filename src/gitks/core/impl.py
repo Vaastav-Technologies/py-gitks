@@ -528,7 +528,58 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug("Testing public_key data for validity.")
         self.key_validator.validate_key(public_key)
         logger.info("Supplied public key is valid.")
-
+        gitks_conf_branch = self.git.subcmd_unchecked.run(
+            ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"]
+        )
+        logger.debug(f"gitks_conf_branch: {gitks_conf_branch}")
+        final_gitks_conf_branch = f"{gitks_conf_branch}/{FINAL_STR}"
+        logger.debug(f"final_gitks_conf_branch: {final_gitks_conf_branch}")
+        final_gitks_conf_worktree = self.get_or_create_workspace(final_gitks_conf_branch)
+        logger.debug(f"final_gitks_conf_worktree: {final_gitks_conf_worktree}")
+        logger.debug(f"Getting configured {GIT_KS_DIR_CONFIG_KEY}")
+        git_ks_dir = self.git.subcmd_unchecked.run(
+            ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
+        ).stdout.strip()
+        git_ks_dir = Path(git_ks_dir) if git_ks_dir else None
+        logger.debug(f"Got Configured {GIT_KS_DIR_CONFIG_KEY}: {git_ks_dir}")
+        if not git_ks_dir:
+            logger.debug(f"No {GIT_KS_DIR_CONFIG_KEY} configured.")
+            git_ks_dir = GIT_KS_DIR
+            logger.debug(f"Setting {GIT_KS_DIR_CONFIG_KEY}={GIT_KS_DIR}")
+        logger.debug("Getting gpg info.")
+        git_ks_dir = Path(self.repo_root_dir, git_ks_dir)
+        logger.debug(f"Full git_ks_dir: {git_ks_dir}")
+        final_gitks_dir = Path(git_ks_dir, FINAL_STR)
+        logger.debug(f"final_gitks_dir: {final_gitks_dir}")
+        final_gitks_conf_git  = self.git.git_opts_override(C=[final_gitks_conf_worktree]).git_envs_override(
+            GNUPGHOME=final_gitks_dir) # separate git instance for final_gitks_conf_worktree
+        logger.debug("Got git instance for final_gitks_conf_worktree.")
+        key_id = self.get_key_name_from_key_data(public_key)
+        logger.debug(f"formulated key_id: {key_id}")
+        key_user_name = self.get_key_user_name(public_key)
+        logger.debug(f"key_user_name: {key_user_name}")
+        key_user_email = self.get_key_user_email(public_key)
+        logger.debug(f"key_user_email: {key_user_email}")
+        key_file = final_gitks_conf_worktree / key_id
+        key_file.write_text(public_key)
+        logger.debug(f"Written key data %.10s to key_file: {key_file}", public_key)
+        self.index_user_name(final_gitks_conf_worktree, key_user_name)
+        logger.info("Indexed user name.")
+        self.index_user_email(final_gitks_conf_worktree, key_user_name)
+        logger.info("Indexed user email.")
+        final_gitks_conf_git.add_subcmd.add(key_file)
+        logger.debug("Indexed key_file.")
+        final_gitks_git = self.git.git_envs_override(GNUPGHOME=final_gitks_dir)
+        logger.debug(f"Obtained git instance for final_gitks_dir: {final_gitks_git}")
+        commit_runcmd = ["commit", "-m", key_id,
+                         "-m", f"Adding key {key_id} for user {key_user_name}",
+                         f"-S{key_id}!"]
+        logger.debug(f"Running commit command: {commit_runcmd}")
+        final_gitks_conf_git.subcmd_unchecked.run(commit_runcmd)
+        logger.info("Saved key in local db.")
+        final_gitks_conf_git.subcmd_unchecked.run(["push"])
+        logger.info("Pushed to remote server.")
+        logger.success("Successfully sent the key to remote server.")
         logger.trace("Exiting")
 
     @override
