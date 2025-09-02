@@ -20,7 +20,7 @@ from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import VTEnvListLC
 from logician.std_log.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
-from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS
+from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS, ERR_INVALID_USAGE
 
 from gitks.core.base import GitKeyServer, KeyValidator, GitKeyServerClient
 from gitks.core.constants import (
@@ -432,12 +432,12 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if url == SELF_REPO and base_dir != SELF_REPO:
             errmsg = "SELF_REPO url does not allow base_dir configuration."
             logger.error(errmsg)
-            raise GitKsException(errmsg) from ValueError(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(errmsg)
 
         if base_dir == SELF_REPO and url != SELF_REPO:
             errmsg = "SELF_REPO base_dir does not allow url configuration."
             logger.error(errmsg)
-            raise GitKsException(errmsg) from ValueError(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(errmsg)
 
         if base_dir == SELF_REPO and url == SELF_REPO:
             message = "No clone needed as repo itself is the keyserver."
