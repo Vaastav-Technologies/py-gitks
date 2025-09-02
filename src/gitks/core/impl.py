@@ -348,7 +348,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         #  or simplt git worktree list <branch-pattern>
         worktree_map = parse_git_worktree_branches_only(worktree_str)
         repo_conf_worktree_details = worktree_map.get(branch_name)
-        repo_conf_worktree = repo_conf_worktree_details.get("worktree")
+        repo_conf_worktree = Path(repo_conf_worktree_details.get("worktree")) \
+            if "worktree" in repo_conf_worktree_details else None
         logger.debug(f"worktree for branch {branch_name}: {repo_conf_worktree}")
         logger.trace("Exiting")
         return repo_conf_worktree
