@@ -210,9 +210,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"git_ks_dir: {git_ks_dir}")
         logger.debug(f"key_base_branch: {keys_base_branch}")
 
-        logger.info(f"Initialising git repo in {self.root_dir}")
+        logger.debug(f"Initialising git repo in {self.root_dir}")
         self.git.subcmd_unchecked.run(["init"])
-        logger.debug("repo initialised.")
+        logger.info(f"Initialised git repo in {self.root_dir}")
 
         self.set_local_user_info()
 
