@@ -183,13 +183,13 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         self.user_name = user_name
         if user_name:  # else autodetect
             self.git = self.git.git_envs_override(
-                GIT_AUTHOR_NAME=user_name
-            ).git_envs_override(GIT_COMMITTER_NAME=user_name)
+                GIT_AUTHOR_NAME=user_name, GIT_COMMITTER_NAME=user_name
+            )
         self.user_email = user_email
         if user_email:  # else autodetect
             self.git = self.git.git_envs_override(
-                GIT_AUTHOR_EMAIL=user_email
-            ).git_envs_override(GIT_COMMITTER_EMAIL=user_email)
+                GIT_AUTHOR_EMAIL=user_email, GIT_COMMITTER_EMAIL=user_email
+            )
         logger.debug(f"Obtained git instance: {self.git}")
         logger.debug(f"supplied worktree_generator: {worktree_generator}")
         self.worktree_generator = worktree_generator or BaseDirWorkTreeGenerator(
