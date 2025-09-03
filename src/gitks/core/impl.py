@@ -178,7 +178,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"computed repo_root_dir: {repo_root_dir}")
         logger.debug(f"Supplied user_name: {user_name}")
         logger.debug(f"Supplied user_email: {user_email}")
-        self.git = gitbolt.get_git(self.repo_root_dir)
+        self.git = SimpleGitCommand(self.repo_root_dir)
         logger.debug(f"Obtained git instance: {self.git}")
         self.user_name = user_name
         if user_name:  # else autodetect
