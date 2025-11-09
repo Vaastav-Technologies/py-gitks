@@ -64,10 +64,7 @@ class TestSimpleInit:
     @pytest.mark.parametrize("keys_branch", ["test", "final"])
     def test_sets_keys_worktree(self, repo_local, worktree_for_test, keys_branch):
         git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
-        assert (
-            f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"
-            in worktree_details
-        )
+        assert f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}" in worktree_details
 
     @pytest.mark.parametrize("keys_branch", ["test", "final"])
     def test_sets_keys_worktree_in_base_dir(
@@ -123,14 +120,16 @@ class TestSimpleInit:
 
 
 @pytest.mark.parametrize("main_branch", [True, False])
-def test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_test, main_branch):
+def test_presence_of_main_branch_does_not_not_matter(
+    repo_local, worktree_for_test, main_branch
+):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
         None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
-        user_name = user_name,
-        user_email = user_email,
+        user_name=user_name,
+        user_email=user_email,
         worktree_generator=worktree_for_test,
     )
     git = SimpleGitCommand(repo_local)
@@ -145,20 +144,30 @@ def test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_te
 
 
 @pytest.mark.parametrize("main_branch", [True, False])
-def test_presence_of_main_branch_does_not_affect_gitks_dir_creation(repo_local, worktree_for_test, main_branch):
-    test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_test, main_branch)
+def test_presence_of_main_branch_does_not_affect_gitks_dir_creation(
+    repo_local, worktree_for_test, main_branch
+):
+    test_presence_of_main_branch_does_not_not_matter(
+        repo_local, worktree_for_test, main_branch
+    )
     assert Path(repo_local, GIT_KS_DIR, TEST_STR).exists()
     assert Path(repo_local, GIT_KS_DIR, FINAL_STR).exists()
 
 
 @pytest.mark.parametrize("main_branch", [True, False])
-def test_presence_of_main_branch_does_not_affect_gitks_branch_creation(repo_local, worktree_for_test, main_branch):
-    test_presence_of_main_branch_does_not_not_matter(repo_local, worktree_for_test, main_branch)
+def test_presence_of_main_branch_does_not_affect_gitks_branch_creation(
+    repo_local, worktree_for_test, main_branch
+):
+    test_presence_of_main_branch_does_not_not_matter(
+        repo_local, worktree_for_test, main_branch
+    )
     git = SimpleGitCommand(repo_local)
-    assert git.subcmd_unchecked.run(["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{TEST_STR}"],
-                                    text=True).stdout.strip()
-    assert git.subcmd_unchecked.run(["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{FINAL_STR}"],
-                                    text=True).stdout.strip()
+    assert git.subcmd_unchecked.run(
+        ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{TEST_STR}"], text=True
+    ).stdout.strip()
+    assert git.subcmd_unchecked.run(
+        ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{FINAL_STR}"], text=True
+    ).stdout.strip()
 
 
 def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test):
@@ -172,7 +181,7 @@ def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test
         worktree_generator=worktree_for_test,
     )
     ano_gitks_home = Path(".ano-gpg-home", ".ano-gitks")
-    ano_gitks_home = ano_gitks_home / 'yo'
+    ano_gitks_home = ano_gitks_home / "yo"
     ks.init(git_ks_dir=ano_gitks_home)
     git = SimpleGitCommand(repo_local)
     assert git.subcmd_unchecked.run(

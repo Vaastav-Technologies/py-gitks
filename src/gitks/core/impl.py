@@ -242,11 +242,15 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.info(f"key base branch {keys_base_branch} created.")
 
         git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
-        logger.debug(f"attempting to create keyserver keys test directory: {git_ks_test_dir}")
+        logger.debug(
+            f"attempting to create keyserver keys test directory: {git_ks_test_dir}"
+        )
         git_ks_test_dir.mkdir(parents=True)
         logger.info(f"Directory {git_ks_test_dir} created.")
         git_ks_final_dir = Path(self.root_dir, git_ks_dir, FINAL_STR)
-        logger.debug(f"attempting to create keyserver keys final directory: {git_ks_final_dir}")
+        logger.debug(
+            f"attempting to create keyserver keys final directory: {git_ks_final_dir}"
+        )
         git_ks_final_dir.mkdir(parents=True)
         logger.info(f"Directory {git_ks_final_dir} created.")
         self.git.subcmd_unchecked.run(
@@ -276,12 +280,16 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         repo_conf_worktree = Path(repo_conf_worktree, REPO_CONF_BRANCH)
         repo_conf_worktree_ks_file = Path(repo_conf_worktree, CAPS_KEYSERVER_STR)
         repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
-        logger.debug(f"{GIT_KS_STR} registered as the keyserver in {repo_conf_worktree_ks_file}")
+        logger.debug(
+            f"{GIT_KS_STR} registered as the keyserver in {repo_conf_worktree_ks_file}"
+        )
         repo_conf_worktree_ks_url_file = Path(repo_conf_worktree, KEYSERVER_URL_F_NAME)
         repo_conf_worktree_ks_url_file.write_text(
             str(SELF_REPO)
         )  # denote that the git keyserver is on the same repo
-        logger.debug(f"{SELF_REPO} registered as the git keyserver repo path in {repo_conf_worktree_ks_url_file}")
+        logger.debug(
+            f"{SELF_REPO} registered as the git keyserver repo path in {repo_conf_worktree_ks_url_file}"
+        )
         repo_conf_worktree_git = self.git.git_opts_override(
             C=[repo_conf_worktree]
         )  # get special separate git for the
@@ -289,8 +297,10 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         repo_conf_worktree_git.add_subcmd.add(
             str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file)
         )
-        logger.debug(f"`{repo_conf_worktree_ks_file}` and `{repo_conf_worktree_ks_url_file}` added to repo "
-                     "conf worktree.")
+        logger.debug(
+            f"`{repo_conf_worktree_ks_file}` and `{repo_conf_worktree_ks_url_file}` added to repo "
+            "conf worktree."
+        )
         repo_conf_worktree_git.subcmd_unchecked.run(
             ["commit", "-m", "git keyserver registered."]
         )
@@ -300,11 +310,17 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         )
         logger.info("Local configuration saved.")
         logger.debug(f"Storing {GIT_KS_STR} branch configuration in repo conf branch.")
-        repo_conf_worktree_ks_branch_file = Path(repo_conf_worktree, KEYSERVER_BRANCH_F_NAME)
+        repo_conf_worktree_ks_branch_file = Path(
+            repo_conf_worktree, KEYSERVER_BRANCH_F_NAME
+        )
         repo_conf_worktree_ks_branch_file.write_text(keys_base_branch)
-        logger.debug(f"Noted {keys_base_branch} as keys_base_branch in {repo_conf_worktree_ks_branch_file}")
+        logger.debug(
+            f"Noted {keys_base_branch} as keys_base_branch in {repo_conf_worktree_ks_branch_file}"
+        )
         repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_branch_file))
-        logger.debug(f"Indexed {repo_conf_worktree_ks_branch_file} in worktree {repo_conf_worktree}")
+        logger.debug(
+            f"Indexed {repo_conf_worktree_ks_branch_file} in worktree {repo_conf_worktree}"
+        )
         repo_conf_worktree_git.subcmd_unchecked.run(
             ["commit", "-m", "git keyserver base branch"]
         )
@@ -348,8 +364,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         #  or simplt git worktree list <branch-pattern>
         worktree_map = parse_git_worktree_branches_only(worktree_str)
         repo_conf_worktree_details = worktree_map.get(branch_name)
-        repo_conf_worktree = Path(repo_conf_worktree_details.get("worktree")) \
-            if "worktree" in repo_conf_worktree_details else None
+        repo_conf_worktree = (
+            Path(repo_conf_worktree_details.get("worktree"))
+            if "worktree" in repo_conf_worktree_details
+            else None
+        )
         logger.debug(f"worktree for branch {branch_name}: {repo_conf_worktree}")
         logger.trace("Exiting")
         return repo_conf_worktree
@@ -369,9 +388,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         if self.user_name:
             logger.debug("user.name supplied for setting.")
-            git.subcmd_unchecked.run(
-                ["config", "--local", "user.name", self.user_name]
-            )
+            git.subcmd_unchecked.run(["config", "--local", "user.name", self.user_name])
             logger.debug(f"Set local git.user.name: {self.user_name}")
             logger.info("Supplied user.name set locally.")
         else:
@@ -432,12 +449,16 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if url == SELF_REPO and base_dir != SELF_REPO:
             errmsg = "SELF_REPO url does not allow base_dir configuration."
             logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+                errmsg
+            )
 
         if base_dir == SELF_REPO and url != SELF_REPO:
             errmsg = "SELF_REPO base_dir does not allow url configuration."
             logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+                errmsg
+            )
 
         if base_dir == SELF_REPO and url == SELF_REPO:
             message = "No clone needed as repo itself is the keyserver."
@@ -523,8 +544,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
     @override
     def send_key(self, public_key: bytes | str) -> KeyUploadResult:
         logger.trace("Entering")
-        logger.debug("Starting section of supplied "
-                     "public_key: %.10s", public_key)  # not using f-string to make this lazy
+        logger.debug(
+            "Starting section of supplied public_key: %.10s", public_key
+        )  # not using f-string to make this lazy
         logger.debug("Testing public_key data for validity.")
         self.key_validator.validate_key(public_key)
         logger.info("Supplied public key is valid.")
@@ -551,8 +573,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Full git_ks_dir: {git_ks_dir}")
         final_gitks_dir = Path(git_ks_dir, FINAL_STR)
         logger.debug(f"final_gitks_dir: {final_gitks_dir}")
-        final_gitks_conf_git  = self.git.git_opts_override(C=[final_gitks_conf_worktree]).git_envs_override(
-            GNUPGHOME=final_gitks_dir) # separate git instance for final_gitks_conf_worktree
+        final_gitks_conf_git = self.git.git_opts_override(
+            C=[final_gitks_conf_worktree]
+        ).git_envs_override(
+            GNUPGHOME=final_gitks_dir
+        )  # separate git instance for final_gitks_conf_worktree
         logger.debug("Got git instance for final_gitks_conf_worktree.")
         key_id = self.get_key_name_from_key_data(public_key)
         logger.debug(f"formulated key_id: {key_id}")
@@ -571,9 +596,14 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug("Indexed key_file.")
         final_gitks_git = self.git.git_envs_override(GNUPGHOME=final_gitks_dir)
         logger.debug(f"Obtained git instance for final_gitks_dir: {final_gitks_git}")
-        commit_runcmd = ["commit", "-m", key_id,
-                         "-m", f"Adding key {key_id} for user {key_user_name}",
-                         f"-S{key_id}!"]
+        commit_runcmd = [
+            "commit",
+            "-m",
+            key_id,
+            "-m",
+            f"Adding key {key_id} for user {key_user_name}",
+            f"-S{key_id}!",
+        ]
         logger.debug(f"Running commit command: {commit_runcmd}")
         final_gitks_conf_git.subcmd_unchecked.run(commit_runcmd)
         logger.info("Saved key in local db.")
