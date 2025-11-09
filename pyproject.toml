@@ -70,3 +70,7 @@ where = ['src']
 # so let mypy try to best make sense of the data-types for python-gnupg package
 module = ["gnupg.*"]
 follow_untyped_imports = true
+
+[tool.pytest.ini_options]
+addopts = ["--doctest-modules", # Test all the doctests
+    "--doctest-glob=*.md"] # Test doctests included as examples in the md files.
