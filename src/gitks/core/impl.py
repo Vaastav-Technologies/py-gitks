@@ -17,8 +17,8 @@ from typing import override, Protocol, overload
 
 from gitbolt.git_subprocess.base import GitCommand
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
-from logician.configurators.env import VTEnvListLC
-from logician.std_log.configurator import StdLoggerConfigurator
+from logician.configurators.env import LgcnEnvListLC
+from logician.stdlog.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
 from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS, ERR_INVALID_USAGE
 
@@ -50,7 +50,7 @@ from gitks.core.model import (
 from gitks.core.utils import extract_repo_name, is_git_repo
 
 _base_logger = logging.getLogger(__name__)
-logger = VTEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
+logger = LgcnEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
 
 
 class WorkTreeGenerator(Protocol):

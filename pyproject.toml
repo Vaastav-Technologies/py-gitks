@@ -42,8 +42,10 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "python-gnupg",
-    "gitbolt == 0.0.0dev8",
-    "logician"
+    "logician >= 0.0.0.dev9",
+    "vt-commons >= 0.0.1.dev9",
+    "vt-err-hndlr >= 0.0.0.dev6",
+    "gitbolt >= 0.0.0.dev11",
 ]
 
 [dependency-groups]
