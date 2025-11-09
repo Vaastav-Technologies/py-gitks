@@ -18,11 +18,11 @@ jobs:
           python-version: '3.x'
           cache: pip
 
-      - name: 💼 Install Mypy
+      - name: 💼 Install Type Check
         run: |
           python -m pip install --upgrade pip
-          pip install -e . --group dev
+          python -m pip install . --group typecheck
 
-      - name: 🧠 Run Mypy (Static Type Check)
+      - name: 🧠 Run Type Check
         run: |
           mypy -p gitks

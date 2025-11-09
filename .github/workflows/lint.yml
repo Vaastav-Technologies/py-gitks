@@ -18,10 +18,12 @@ jobs:
           python-version: '3.x'
           cache: pip
 
-      - name: 💼 Install Ruff
+      - name: 💼 Install Lint
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e . --group dev
+          python -m pip install . --group lint
 
-      - name: ✅ Run Ruff (Lint)
-        run: ruff check .
+      - name: ✅ Run Lint
+        run: |
+          ruff check .
+          ruff format --check
