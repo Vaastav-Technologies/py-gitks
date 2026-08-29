@@ -6,6 +6,7 @@ implementations related to keyserver workings for ``gitks``.
 """
 
 import logging
+import os
 import random
 import string
 import subprocess
@@ -26,8 +27,10 @@ from gitks.core.base import GitKeyServer, KeyValidator, GitKeyServerClient
 from gitks.core.constants import (
     GIT_KS_DIR,
     GIT_KS_KEYS_BASE_BRANCH,
-    TEST_STR,
-    FINAL_STR,
+    REQUESTS_STR,
+    APPROVED_STR,
+    DENIED_STR,
+    KEY_STAGE_STRS,
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
     GIT_KS_STR,
@@ -37,12 +40,24 @@ from gitks.core.constants import (
     KEYSERVER_URL_F_NAME,
     GIT_KS_KEYSERVER_PATH_KEY,
     KEYSERVER_BRANCH_F_NAME,
+    KEYSERVER_APPROVERS_F_NAME,
+    KEY_SIG_SUFFIX,
+    OWNER_SIG_SUFFIX,
+    DENIED_REASON_SUFFIX,
+)
+from gitks.core.gpg import (
+    as_bytes,
+    detached_sign,
+    fingerprint_of,
+    normalize_fingerprint,
+    verify_detached_signature,
 )
 from gitks.core.errors import GitKsException
 from gitks.core.model import (
     KeyDeleteResult,
     KeyData,
     KeyUploadResult,
+    KeyUploadStatus,
     KeyServerConnectResult,
     GitSelf,
     GitKSCloneResult,
@@ -212,6 +227,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         logger.debug(f"Initialising git repo in {self.root_dir}")
         self.git.subcmd_unchecked.run(["init"])
+        self.git.subcmd_unchecked.run(["config", "--local", "core.autocrlf", "false"])
         logger.info(f"Initialised git repo in {self.root_dir}")
 
         self.set_local_user_info()
@@ -221,12 +237,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             ["branch", "--list", f"{keys_base_branch}*"], text=True
         ).stdout.split()
 
-        keys_test_branch = f"{keys_base_branch}/{TEST_STR}"
-        keys_final_branch = f"{keys_base_branch}/{FINAL_STR}"
-        if (
-            keys_base_branch in existing_branches
-            or keys_test_branch in existing_branches
-            or keys_final_branch in existing_branches
+        keys_stage_branches = [
+            f"{keys_base_branch}/{stage}" for stage in KEY_STAGE_STRS
+        ]
+        if keys_base_branch in existing_branches or any(
+            stage_branch in existing_branches for stage_branch in keys_stage_branches
         ):
             errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
             logger.error(errmsg)
@@ -234,50 +249,26 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
         worktree_path = self.worktree_generator.generate_worktree(
-            self.git.root_dir, keys_test_branch, keys_final_branch, orphan=True
+            self.git.root_dir, *keys_stage_branches, orphan=True
         )
         logger.debug(f"Keys base branch worktrees generated in {worktree_path}")
-        logger.debug(f"{keys_test_branch} -> {worktree_path / keys_test_branch}")
-        logger.debug(f"{keys_base_branch} -> {worktree_path / keys_base_branch}")
+        for stage_branch in keys_stage_branches:
+            logger.debug(f"{stage_branch} -> {worktree_path / stage_branch}")
         logger.info(f"key base branch {keys_base_branch} created.")
 
-        git_ks_test_dir = Path(self.root_dir, git_ks_dir, TEST_STR)
-        logger.debug(
-            f"attempting to create keyserver keys test directory: {git_ks_test_dir}"
-        )
-        git_ks_test_dir.mkdir(parents=True)
-        logger.info(f"Directory {git_ks_test_dir} created.")
-        git_ks_final_dir = Path(self.root_dir, git_ks_dir, FINAL_STR)
-        logger.debug(
-            f"attempting to create keyserver keys final directory: {git_ks_final_dir}"
-        )
-        git_ks_final_dir.mkdir(parents=True)
-        logger.info(f"Directory {git_ks_final_dir} created.")
+        for stage in KEY_STAGE_STRS:
+            stage_dir = Path(self.root_dir, git_ks_dir, stage)
+            logger.debug(f"attempting to create keyserver keys directory: {stage_dir}")
+            stage_dir.mkdir(parents=True)
+            logger.info(f"Directory {stage_dir} created.")
         self.git.subcmd_unchecked.run(
             ["config", "--local", GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)]
         )
         logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
 
         logger.debug("Checking if repo configuration branch exists already.")
-        repo_conf_branch = self.git.subcmd_unchecked.run(
-            ["branch", "--list", REPO_CONF_BRANCH], text=True
-        ).stdout.strip()
-        if repo_conf_branch:
-            logger.info(
-                f"Repo configuration branch '{REPO_CONF_BRANCH}' already exists."
-            )
-            logger.debug(
-                f"Checking if worktree for {REPO_CONF_BRANCH} is already present."
-            )
-            repo_conf_worktree = self.get_or_create_worktree(repo_conf_branch)
-        else:
-            logger.info("Creating repo configuration branch.")
-            repo_conf_worktree = self.worktree_generator.generate_worktree(
-                self.git.root_dir, REPO_CONF_BRANCH, orphan=True
-            )
-            logger.debug("Created repo conf branch worktree")
+        repo_conf_worktree = self.get_or_create_worktree(REPO_CONF_BRANCH, orphan=True)
         logger.debug(f"repo_conf_worktree path: {repo_conf_worktree}")
-        repo_conf_worktree = Path(repo_conf_worktree, REPO_CONF_BRANCH)
         repo_conf_worktree_ks_file = Path(repo_conf_worktree, CAPS_KEYSERVER_STR)
         repo_conf_worktree_ks_file.write_text(GIT_KS_STR)
         logger.debug(
@@ -326,12 +317,26 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         )
         logger.debug(f"Registered {GIT_KS_BRANCH_CONFIG_KEY}={keys_base_branch}")
 
+        repo_conf_worktree_approvers_file = Path(
+            repo_conf_worktree, KEYSERVER_APPROVERS_F_NAME
+        )
+        if not repo_conf_worktree_approvers_file.exists():
+            repo_conf_worktree_approvers_file.write_text("")
+            repo_conf_worktree_git.add_subcmd.add(
+                str(repo_conf_worktree_approvers_file)
+            )
+            repo_conf_worktree_git.subcmd_unchecked.run(
+                ["commit", "-m", "git keyserver approvers"]
+            )
+            logger.debug(f"Created empty {KEYSERVER_APPROVERS_F_NAME}")
+
         logger.success(f"Initialised {GIT_KS_STR}.")
         logger.trace("Exiting")
 
-    def get_or_create_worktree(self, branch_name: str):
+    def get_or_create_worktree(self, branch_name: str, orphan: bool = False) -> Path:
         """
         :param branch_name: name of the branch to get or create worktree for.
+        :param orphan: create an orphan branch when the worktree (and branch) do not exist yet.
         :return: the worktree path for an existing worktree for branch ``branch_name`` or creates one if the worktree
             doesn't exist and then returns the path to it.
         """
@@ -339,11 +344,12 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"branch_name: {branch_name}")
         branch_worktree = self.get_existing_worktree(branch_name)
         if not branch_worktree:
-            logger.debug("Repo conf branch worktree does not exist.")
-            branch_worktree = self.worktree_generator.generate_worktree(
-                self.git.root_dir, branch_name
+            logger.debug(f"Worktree for {branch_name} does not exist.")
+            generated_parent = self.worktree_generator.generate_worktree(
+                self.git.root_dir, branch_name, orphan=orphan
             )
-            logger.debug("Created repo conf branch worktree")
+            branch_worktree = Path(generated_parent, branch_name)
+            logger.debug(f"Created worktree at {branch_worktree}")
         logger.trace("Exiting")
         return branch_worktree
 
@@ -363,7 +369,18 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         #  either a git worktree list --get <branch-pattern>
         #  or simplt git worktree list <branch-pattern>
         worktree_map = parse_git_worktree_branches_only(worktree_str)
-        repo_conf_worktree_details = worktree_map.get(branch_name)
+        ref = (
+            branch_name
+            if branch_name.startswith("refs/")
+            else f"refs/heads/{branch_name}"
+        )
+        repo_conf_worktree_details = worktree_map.get(ref) or worktree_map.get(
+            branch_name
+        )
+        if not repo_conf_worktree_details:
+            logger.debug(f"No worktree mapped for branch {branch_name}")
+            logger.trace("Exiting")
+            return None
         repo_conf_worktree = (
             Path(repo_conf_worktree_details.get("worktree"))
             if "worktree" in repo_conf_worktree_details
@@ -543,82 +560,311 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
     @override
     def send_key(self, public_key: bytes | str) -> KeyUploadResult:
-        logger.trace("Entering")
-        logger.debug(
-            "Starting section of supplied public_key: %.10s", public_key
-        )  # not using f-string to make this lazy
-        logger.debug("Testing public_key data for validity.")
-        self.key_validator.validate_key(public_key)
-        logger.info("Supplied public key is valid.")
-        gitks_conf_branch = self.git.subcmd_unchecked.run(
-            ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"]
+        errmsg = (
+            "send_key requires a detached signature of the public key. "
+            "Use request_key(public_key, detached_signature)."
         )
-        logger.debug(f"gitks_conf_branch: {gitks_conf_branch}")
-        final_gitks_conf_branch = f"{gitks_conf_branch}/{FINAL_STR}"
-        logger.debug(f"final_gitks_conf_branch: {final_gitks_conf_branch}")
-        final_gitks_conf_worktree = self.get_or_create_worktree(final_gitks_conf_branch)
-        logger.debug(f"final_gitks_conf_worktree: {final_gitks_conf_worktree}")
-        logger.debug(f"Getting configured {GIT_KS_DIR_CONFIG_KEY}")
-        git_ks_dir = self.git.subcmd_unchecked.run(
-            ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
-        ).stdout.strip()
-        git_ks_dir = Path(git_ks_dir) if git_ks_dir else None
-        logger.debug(f"Got Configured {GIT_KS_DIR_CONFIG_KEY}: {git_ks_dir}")
-        if not git_ks_dir:
-            logger.debug(f"No {GIT_KS_DIR_CONFIG_KEY} configured.")
-            git_ks_dir = GIT_KS_DIR
-            logger.debug(f"Setting {GIT_KS_DIR_CONFIG_KEY}={GIT_KS_DIR}")
-        logger.debug("Getting gpg info.")
-        git_ks_dir = Path(self.repo_root_dir, git_ks_dir)
-        logger.debug(f"Full git_ks_dir: {git_ks_dir}")
-        final_gitks_dir = Path(git_ks_dir, FINAL_STR)
-        logger.debug(f"final_gitks_dir: {final_gitks_dir}")
-        final_gitks_conf_git = self.git.git_opts_override(
-            C=[final_gitks_conf_worktree]
-        ).git_envs_override(
-            GNUPGHOME=final_gitks_dir
-        )  # separate git instance for final_gitks_conf_worktree
-        logger.debug("Got git instance for final_gitks_conf_worktree.")
-        key_id = self.get_key_name_from_key_data(public_key)
-        logger.debug(f"formulated key_id: {key_id}")
-        key_user_name = self.get_key_user_name(public_key)
-        logger.debug(f"key_user_name: {key_user_name}")
-        key_user_email = self.get_key_user_email(public_key)
-        logger.debug(f"key_user_email: {key_user_email}")
-        key_file = final_gitks_conf_worktree / key_id
-        key_file.write_text(public_key)
-        logger.debug(f"Written key data %.10s to key_file: {key_file}", public_key)
-        self.index_user_name(final_gitks_conf_worktree, key_user_name)
-        logger.info("Indexed user name.")
-        self.index_user_email(final_gitks_conf_worktree, key_user_name)
-        logger.info("Indexed user email.")
-        final_gitks_conf_git.add_subcmd.add(key_file)
-        logger.debug("Indexed key_file.")
-        final_gitks_git = self.git.git_envs_override(GNUPGHOME=final_gitks_dir)
-        logger.debug(f"Obtained git instance for final_gitks_dir: {final_gitks_git}")
-        commit_runcmd = [
-            "commit",
-            "-m",
-            key_id,
-            "-m",
-            f"Adding key {key_id} for user {key_user_name}",
-            f"-S{key_id}!",
-        ]
-        logger.debug(f"Running commit command: {commit_runcmd}")
-        final_gitks_conf_git.subcmd_unchecked.run(commit_runcmd)
-        logger.info("Saved key in local db.")
-        final_gitks_conf_git.subcmd_unchecked.run(["push"])
-        logger.info("Pushed to remote server.")
-        logger.success("Successfully sent the key to remote server.")
+        logger.error(errmsg)
+        raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+            errmsg
+        )
+
+    def request_key(
+        self, public_key: bytes | str, detached_signature: bytes | str
+    ) -> KeyUploadResult:
+        logger.trace("Entering")
+        self.key_validator.validate_key(public_key)
+        key_id = fingerprint_of(public_key)
+        logger.debug(f"key_id: {key_id}")
+        if not verify_detached_signature(public_key, public_key, detached_signature):
+            errmsg = "Detached signature does not match the supplied public key."
+            logger.error(errmsg)
+            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+                errmsg
+            )
+
+        if self._key_present(APPROVED_STR, key_id) or self._key_present(
+            REQUESTS_STR, key_id
+        ):
+            message = f"Key {key_id} already exists as pending or approved."
+            logger.notice(message)
+            return KeyUploadResult(
+                status=KeyUploadStatus.ALREADY_EXISTS, message=message, server_id=key_id
+            )
+
+        requests_wt = self._stage_worktree(REQUESTS_STR)
+        key_file = requests_wt / key_id
+        sig_file = requests_wt / f"{key_id}{KEY_SIG_SUFFIX}"
+        key_file.write_bytes(as_bytes(public_key))
+        sig_file.write_bytes(as_bytes(detached_signature))
+        commit = self._commit_paths(
+            requests_wt,
+            [key_file, sig_file],
+            f"request {key_id}",
+            signing_key=key_id,
+        )
+        logger.success(f"Key {key_id} stored as pending request.")
         logger.trace("Exiting")
+        return KeyUploadResult(
+            status=KeyUploadStatus.PENDING, message="pending", server_id=commit or key_id
+        )
+
+    def list_pending_keys(self) -> list[KeyData]:
+        requests_wt = self._stage_worktree(REQUESTS_STR)
+        pending: list[KeyData] = []
+        if not requests_wt.exists():
+            return pending
+        for path in sorted(requests_wt.iterdir()):
+            if path.name.startswith(".") or not path.is_file():
+                continue
+            if path.name.endswith(
+                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, DENIED_REASON_SUFFIX)
+            ):
+                continue
+            pending.append(
+                KeyData(
+                    key_id=path.name,
+                    raw_bytes=path.read_bytes(),
+                    format="PGP",
+                )
+            )
+        return pending
+
+    def register_approver(self, owner_key_id: str) -> None:
+        fp = normalize_fingerprint(owner_key_id)
+        conf_wt = self.get_or_create_worktree(REPO_CONF_BRANCH)
+        approvers_file = conf_wt / KEYSERVER_APPROVERS_F_NAME
+        existing = self._read_approvers(conf_wt)
+        if fp in existing:
+            logger.notice(f"Approver {fp} already registered.")
+            return
+        existing.append(fp)
+        approvers_file.write_text("\n".join(existing) + "\n", encoding="utf-8")
+        self._commit_paths(
+            conf_wt, [approvers_file], f"register approver {fp}"
+        )
+        logger.success(f"Registered approver {fp}.")
+
+    def approve_key(self, key_id: str, owner_key_id: str) -> KeyUploadResult:
+        logger.trace("Entering")
+        key_id = normalize_fingerprint(key_id)
+        owner_key_id = normalize_fingerprint(owner_key_id)
+        public_key, requester_sig = self._load_request(key_id)
+        if not verify_detached_signature(public_key, public_key, requester_sig):
+            return self._move_to_denied(
+                key_id,
+                owner_key_id,
+                "requester signature verification failed",
+            )
+        if owner_key_id not in self._read_approvers():
+            return self._move_to_denied(
+                key_id,
+                owner_key_id,
+                "approver is not authorized",
+            )
+        owner_sig = self._owner_sign(public_key, owner_key_id)
+        return self._move_request(
+            key_id,
+            owner_key_id,
+            dest_stage=APPROVED_STR,
+            owner_sig=owner_sig,
+            commit_message=f"approve {key_id}",
+            status=KeyUploadStatus.SUCCESS,
+            extra_files=None,
+        )
+
+    def deny_key(
+        self, key_id: str, owner_key_id: str, reason: str
+    ) -> KeyUploadResult:
+        key_id = normalize_fingerprint(key_id)
+        owner_key_id = normalize_fingerprint(owner_key_id)
+        return self._move_to_denied(key_id, owner_key_id, reason)
+
+    def _move_to_denied(
+        self, key_id: str, owner_key_id: str, reason: str
+    ) -> KeyUploadResult:
+        public_key, _requester_sig = self._load_request(key_id)
+        owner_sig = self._owner_sign(public_key, owner_key_id)
+        reason_name = f"{key_id}{DENIED_REASON_SUFFIX}"
+        return self._move_request(
+            key_id,
+            owner_key_id,
+            dest_stage=DENIED_STR,
+            owner_sig=owner_sig,
+            commit_message=f"deny {key_id}: {reason}",
+            status=KeyUploadStatus.DENIED,
+            extra_files={reason_name: reason},
+        )
+
+    def _owner_sign(self, public_key: str, owner_key_id: str) -> str:
+        gnupg_home = os.environ.get("GNUPGHOME")
+        if not gnupg_home:
+            raise GitKsException(
+                "GNUPGHOME is required to sign with the repo-owner key.",
+                exit_code=ERR_INVALID_USAGE,
+            )
+        return detached_sign(public_key, owner_key_id, gnupg_home)
+
+    def _move_request(
+        self,
+        key_id: str,
+        owner_key_id: str,
+        dest_stage: str,
+        owner_sig: str,
+        commit_message: str,
+        status: KeyUploadStatus,
+        extra_files: dict[str, str] | None,
+    ) -> KeyUploadResult:
+        requests_wt = self._stage_worktree(REQUESTS_STR)
+        dest_wt = self._stage_worktree(dest_stage)
+        key_src = requests_wt / key_id
+        sig_src = requests_wt / f"{key_id}{KEY_SIG_SUFFIX}"
+        if not key_src.exists() or not sig_src.exists():
+            raise GitKsException(
+                f"Pending request {key_id} not found.",
+                exit_code=ERR_INVALID_USAGE,
+            )
+
+        key_dest = dest_wt / key_id
+        sig_dest = dest_wt / f"{key_id}{KEY_SIG_SUFFIX}"
+        owner_dest = dest_wt / f"{key_id}{OWNER_SIG_SUFFIX}"
+        key_dest.write_bytes(key_src.read_bytes())
+        sig_dest.write_bytes(sig_src.read_bytes())
+        owner_dest.write_text(owner_sig, encoding="utf-8")
+        dest_paths = [key_dest, sig_dest, owner_dest]
+        if extra_files:
+            for name, content in extra_files.items():
+                extra_path = dest_wt / name
+                extra_path.write_text(content, encoding="utf-8")
+                dest_paths.append(extra_path)
+
+        commit = self._commit_paths(
+            dest_wt, dest_paths, commit_message, signing_key=owner_key_id
+        )
+        req_git = self.git.git_opts_override(C=[requests_wt])
+        req_git.subcmd_unchecked.run(["rm", "-f", str(key_src), str(sig_src)])
+        req_git.subcmd_unchecked.run(
+            ["commit", "-m", f"remove pending {key_id} after {dest_stage}"]
+        )
+        logger.success(f"Key {key_id} moved to {dest_stage}.")
+        return KeyUploadResult(status=status, message=commit_message, server_id=commit)
+
+    def _load_request(self, key_id: str) -> tuple[str, bytes]:
+        requests_wt = self._stage_worktree(REQUESTS_STR)
+        key_file = requests_wt / key_id
+        sig_file = requests_wt / f"{key_id}{KEY_SIG_SUFFIX}"
+        if not key_file.exists() or not sig_file.exists():
+            raise GitKsException(
+                f"Pending request {key_id} not found.",
+                exit_code=ERR_INVALID_USAGE,
+            )
+        return key_file.read_bytes().decode("utf-8"), sig_file.read_bytes()
+
+    def _read_approvers(self, conf_wt: Path | None = None) -> list[str]:
+        conf_wt = conf_wt or self.get_or_create_worktree(REPO_CONF_BRANCH)
+        approvers_file = conf_wt / KEYSERVER_APPROVERS_F_NAME
+        if not approvers_file.exists():
+            shown = self.git.subcmd_unchecked.run(
+                ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_APPROVERS_F_NAME}"],
+                text=True,
+            ).stdout
+            text = shown
+        else:
+            text = approvers_file.read_text(encoding="utf-8")
+        return [
+            normalize_fingerprint(line)
+            for line in text.splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+
+    def _keys_base_branch(self) -> str:
+        shown = self.git.subcmd_unchecked.run(
+            ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"],
+            text=True,
+        ).stdout.strip()
+        return shown or GIT_KS_KEYS_BASE_BRANCH
+
+    def _stage_worktree(self, stage: str) -> Path:
+        branch = f"{self._keys_base_branch()}/{stage}"
+        return self.get_or_create_worktree(branch)
+
+    def _key_present(self, stage: str, key_id: str) -> bool:
+        return (self._stage_worktree(stage) / key_id).exists()
+
+    def _commit_paths(
+        self,
+        worktree: Path,
+        paths: list[Path],
+        message: str,
+        signing_key: str | None = None,
+    ) -> str | None:
+        git = self.git.git_opts_override(C=[worktree])
+        gnupg_home = os.environ.get("GNUPGHOME")
+        if gnupg_home:
+            git = git.git_envs_override(GNUPGHOME=gnupg_home)
+        git.add_subcmd.add(*[str(p) for p in paths])
+        cmd = ["commit", "-m", message]
+        if signing_key:
+            cmd.append(f"-S{signing_key}!")
+        try:
+            git.subcmd_unchecked.run(cmd)
+        except Exception:
+            if not signing_key:
+                raise
+            logger.warning(
+                "GPG commit signing failed; committing without -S for %s", message
+            )
+            git.subcmd_unchecked.run(["commit", "-m", message])
+        head = git.subcmd_unchecked.run(["rev-parse", "HEAD"], text=True).stdout.strip()
+        try:
+            git.subcmd_unchecked.run(
+                ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]
+            )
+        except Exception:
+            logger.debug("No upstream configured; skip push.")
+        else:
+            git.subcmd_unchecked.run(["push"])
+        return head or None
 
     @override
     def receive_key(self, key_id: str) -> bytes | str:
-        pass
+        approved_wt = self._stage_worktree(APPROVED_STR)
+        key_file = approved_wt / normalize_fingerprint(key_id)
+        if not key_file.exists():
+            raise KeyError(key_id)
+        public_key = key_file.read_bytes().decode("utf-8")
+        requester_sig = (approved_wt / f"{key_file.name}{KEY_SIG_SUFFIX}").read_bytes()
+        owner_sig_file = approved_wt / f"{key_file.name}{OWNER_SIG_SUFFIX}"
+        if not owner_sig_file.exists():
+            raise GitKsException(
+                f"Approved key {key_id} is missing the repo-owner signature.",
+                exit_code=ERR_INVALID_USAGE,
+            )
+        if not verify_detached_signature(public_key, public_key, requester_sig):
+            raise GitKsException(
+                f"Requester signature failed for approved key {key_id}.",
+                exit_code=ERR_INVALID_USAGE,
+            )
+        return public_key
 
     @override
     def search_keys(self, key_search_str: str) -> list[KeyData]:
-        pass
+        approved_wt = self._stage_worktree(APPROVED_STR)
+        found: list[KeyData] = []
+        needle = key_search_str.replace(" ", "").upper()
+        if not approved_wt.exists():
+            return found
+        for path in sorted(approved_wt.iterdir()):
+            if path.name.startswith(".") or not path.is_file() or path.name.endswith(
+                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, DENIED_REASON_SUFFIX)
+            ):
+                continue
+            if needle and needle not in path.name.upper():
+                continue
+            found.append(
+                KeyData(key_id=path.name, raw_bytes=path.read_bytes(), format="PGP")
+            )
+        return found
 
     @override
     def delete_key(self, key_id: str) -> KeyDeleteResult:
@@ -636,7 +882,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
 
 @typing.no_type_check
-def parse_git_worktree_branches_only(data: bytes):
+def parse_git_worktree_branches_only(data: bytes | str):
+    if isinstance(data, str):
+        data = data.encode()
     worktrees = {}
     entries = data.split(b"\0")
 

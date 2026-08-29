@@ -16,6 +16,8 @@ from vt.utils.commons.commons.core_py.base import Sentinel
 # region key upload models
 class KeyUploadStatus(Enum):
     SUCCESS = "success"
+    PENDING = "pending"
+    DENIED = "denied"
     ALREADY_EXISTS = "already_exists"
     INVALID_KEY = "invalid"
     ERROR = "error"

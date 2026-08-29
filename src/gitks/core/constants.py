@@ -33,15 +33,26 @@ GIT_KS_DIR = Path(REPO_GPG_HOME, GIT_KS_DIR_STR)
 Directory specific to gitks
 """
 
-TEST_STR = "test"
+REQUESTS_STR = "requests"
 """
-Keys will be stored in this home directory and branch before finalising.
+Pending key inclusion requests (public key + requester detached signature).
 """
 
-FINAL_STR = "final"
+APPROVED_STR = "approved"
 """
-Finalised keys will be stored in this home directory and branch.
+Repo-owner approved keys. Getters search this branch.
 """
+
+DENIED_STR = "denied"
+"""
+Rejected key requests, with owner signature and rejection reason.
+"""
+
+KEY_STAGE_STRS = (REQUESTS_STR, APPROVED_STR, DENIED_STR)
+
+# Backward-compatible aliases (old test/final layout).
+TEST_STR = REQUESTS_STR
+FINAL_STR = APPROVED_STR
 
 URL_STR = "url"
 CAPS_URL_STR = URL_STR.upper()
@@ -58,6 +69,14 @@ KEYSERVER_STR = "keyserver"
 CAPS_KEYSERVER_STR = KEYSERVER_STR.upper()
 KEYSERVER_URL_F_NAME = f"{CAPS_KEYSERVER_STR}.{CAPS_URL_STR}"
 KEYSERVER_BRANCH_F_NAME = f"{CAPS_KEYSERVER_STR}.{CAPS_BRANCH_STR}"
+APPROVERS_STR = "APPROVERS"
+KEYSERVER_APPROVERS_F_NAME = f"{CAPS_KEYSERVER_STR}.{APPROVERS_STR}"
+"""
+One repo-owner GPG fingerprint per line on the conf branch.
+"""
+KEY_SIG_SUFFIX = ".sig"
+OWNER_SIG_SUFFIX = ".owner.sig"
+DENIED_REASON_SUFFIX = ".reason"
 CONF_STR = "conf"
 GIT_KS_KEYSERVER_PATH_KEY = f"{GIT_KS_STR}.{KEYSERVER_STR}.path"
 KEYSERVER_BRANCH_NAME = f"__{ENC_STR}_internal/{KEYSERVER_STR}/{CONF_STR}"

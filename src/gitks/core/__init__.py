@@ -14,6 +14,8 @@ from gitks.core.base import KeySearcher as KeySearcher
 from gitks.core.base import KeyDeleter as KeyDeleter
 from gitks.core.base import KeyServer as KeyServer
 from gitks.core.base import GitKeyServer as GitKeyServer
+from gitks.core.base import GitKeyServerClient as GitKeyServerClient
+from gitks.core.base import KeyPublishPermission as KeyPublishPermission
 # endregion
 
 
@@ -30,3 +32,5 @@ from gitks.core.model import KeyData as KeyData
 from gitks.core.errors import KeyServerException as KeyServerException
 from gitks.core.errors import GitKsException as GitKsException
 # endregion
+
+from gitks.core.gpg import GpgKeyValidator as GpgKeyValidator
