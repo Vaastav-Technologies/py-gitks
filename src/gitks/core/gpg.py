@@ -33,7 +33,8 @@ def normalize_fingerprint(fingerprint: str) -> str:
 
 def fingerprint_of(public_key: bytes | str) -> str:
     """
-    Import ``public_key`` into an isolated GPG home and return its fingerprint.
+    Read the fingerprint via a throwaway temp GPG home (never ``.git`` or the
+    user's default keyring).
     """
     with tempfile.TemporaryDirectory(prefix="gitks-gpg-") as td:
         gpg = gnupg.GPG(gnupghome=td)

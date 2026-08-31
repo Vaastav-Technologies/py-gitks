@@ -137,8 +137,13 @@ class KeyPublishPermission(Protocol):
         self, public_key: bytes | str, detached_signature: bytes | str
     ) -> KeyUploadResult:
         """
-        Submit a public key and the requester's detached signature of that key
-        onto the keys/requests branch.
+        Submit a public key onto keys/requests. Anyone may request; there is no
+        requester allow-list.
+
+        The requester must:
+
+        - detach-sign their own public key, and
+        - GPG-sign the request commit so it verifies with that same public key.
         """
         ...
 

@@ -48,15 +48,27 @@ def _gen_key(gpg: gnupg.GPG, name: str, email: str):
 
 @pytest.fixture
 def gpg_home(tmp_path):
+    """Isolated GPG home for tests. Not the user's live %APPDATA%\\gnupg keyring."""
     _gpg_or_skip()
-    home = tmp_path / "gnupg"
-    home.mkdir()
+    home = Path(os.environ["APPDATA"]) / "gitks-pytest-gnupg" / tmp_path.name
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "gpg.conf").write_text(
+        "pinentry-mode loopback\nbatch\nno-tty\n", encoding="utf-8"
+    )
+    (home / "gpg-agent.conf").write_text(
+        "allow-loopback-pinentry\n", encoding="utf-8"
+    )
+    prev = os.environ.get("GNUPGHOME")
     os.environ["GNUPGHOME"] = str(home)
     gpg = gnupg.GPG(gnupghome=str(home))
     requester = _gen_key(gpg, "Requester", "req@example.test")
     owner = _gen_key(gpg, "Repo Owner", "owner@example.test")
     yield gpg, requester, owner
-    os.environ.pop("GNUPGHOME", None)
+    if prev is None:
+        os.environ.pop("GNUPGHOME", None)
+    else:
+        os.environ["GNUPGHOME"] = prev
+    shutil.rmtree(home, ignore_errors=True)
 
 
 def _ks(repo_local, tmp_path):
@@ -182,3 +194,15 @@ def test_explicit_deny(repo_local, tmp_path, gpg_home):
     reason = _stage_file(ks, DENIED_STR, f"{fingerprint}{DENIED_REASON_SUFFIX}")
     assert reason.read_text(encoding="utf-8") == "policy"
     assert GIT_KS_KEYS_BASE_BRANCH in str(ks._keys_base_branch())
+
+
+def test_direct_gpg_import_is_deferred(repo_local, tmp_path, gpg_home):
+    gpg, requester, _owner = gpg_home
+    ks = _ks(repo_local, tmp_path)
+    ks.init()
+    public_key = gpg.export_keys(requester.fingerprint)
+    with pytest.raises(Exception, match="dry-run"):
+        ks.key_importer.import_keys_dry_run(public_key)
+    with pytest.raises(Exception, match="deferred"):
+        ks.key_importer.import_keys(public_key)
+

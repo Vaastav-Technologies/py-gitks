@@ -24,13 +24,13 @@ Base branch for ``gitks`` to store keys.
 REPO_GPG_HOME_STR = ".gpg-home"
 REPO_GPG_HOME = Path(GIT_DIR, REPO_GPG_HOME_STR)
 """
-GPG home directory for further usage.
+Layout path under ``.git`` (not a keyring). Do not import OpenPGP keys here.
 """
 
 GIT_KS_DIR_STR = f".{GIT_KS_STR}"
 GIT_KS_DIR = Path(REPO_GPG_HOME, GIT_KS_DIR_STR)
 """
-Directory specific to gitks
+Directory specific to gitks. Not a GNUPGHOME and not used to import keys.
 """
 
 REQUESTS_STR = "requests"
@@ -76,6 +76,7 @@ One repo-owner GPG fingerprint per line on the conf branch.
 """
 KEY_SIG_SUFFIX = ".sig"
 OWNER_SIG_SUFFIX = ".owner.sig"
+COMMIT_SIG_SUFFIX = ".commit.sig"
 DENIED_REASON_SUFFIX = ".reason"
 CONF_STR = "conf"
 GIT_KS_KEYSERVER_PATH_KEY = f"{GIT_KS_STR}.{KEYSERVER_STR}.path"

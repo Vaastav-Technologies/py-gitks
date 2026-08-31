@@ -8,14 +8,17 @@ implementations related to keyserver workings for ``gitks``.
 import logging
 import os
 import random
+import shutil
 import string
 import subprocess
+import tempfile
 import typing
 from abc import abstractmethod
 from pathlib import Path
 from subprocess import CalledProcessError
 from typing import override, Protocol, overload
 
+import gnupg
 from gitbolt.git_subprocess.base import GitCommand
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import LgcnEnvListLC
@@ -43,16 +46,20 @@ from gitks.core.constants import (
     KEYSERVER_APPROVERS_F_NAME,
     KEY_SIG_SUFFIX,
     OWNER_SIG_SUFFIX,
+    COMMIT_SIG_SUFFIX,
     DENIED_REASON_SUFFIX,
 )
 from gitks.core.gpg import (
     as_bytes,
+    as_str,
     detached_sign,
     fingerprint_of,
     normalize_fingerprint,
     verify_detached_signature,
 )
 from gitks.core.errors import GitKsException
+from gitks.core.importing import DeferredKeyImporter, KeyImporter
+from gitks.core.unisign import UniSign
 from gitks.core.model import (
     KeyDeleteResult,
     KeyData,
@@ -172,6 +179,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         user_email: str | None = None,
         worktree_generator: WorkTreeGenerator | None = None,
         clone_base_dir: Path = Path.home(),
+        unisign: UniSign | None = None,
+        key_importer: KeyImporter | None = None,
     ):
         """
         Get a ``GitKeyServer`` which maintains its keys in branches on worktrees.
@@ -184,6 +193,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             worktrees directly at user's home directory if this parameter is not provided. This decision is mostly ok
             for most cases.
         :param clone_base_dir: Repo will be cloned to this base location upon clone operation.
+        :param unisign: Optional UniSign implementation. When omitted, detached
+            signatures use gitks GPG helpers (temp homedir only). A user-facing
+            UniSign implementation will be supplied separately.
+        :param key_importer: Optional importer. Defaults to deferred (no import
+            into .git or the live user keyring until dry-run exists).
         """
         logger.trace("Entering")
         self._key_validator = key_validator
@@ -213,6 +227,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"computed worktree_generator: {worktree_generator}")
         self.clone_base_dir = clone_base_dir
         logger.debug(f"clone_base_dir: {self.clone_base_dir}")
+        self.unisign = unisign
+        self.key_importer = key_importer or DeferredKeyImporter()
         logger.trace("Exiting")
 
     @override
@@ -256,6 +272,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             logger.debug(f"{stage_branch} -> {worktree_path / stage_branch}")
         logger.info(f"key base branch {keys_base_branch} created.")
 
+        logger.debug("Creating gitks layout dirs (not GPG keyrings; keys are not imported here).")
         for stage in KEY_STAGE_STRS:
             stage_dir = Path(self.root_dir, git_ks_dir, stage)
             logger.debug(f"attempting to create keyserver keys directory: {stage_dir}")
@@ -572,11 +589,15 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
     def request_key(
         self, public_key: bytes | str, detached_signature: bytes | str
     ) -> KeyUploadResult:
+        """
+        Anyone may request. The only requester checks are: they detach-signed
+        their own public key, and the request commit verifies with that key.
+        """
         logger.trace("Entering")
         self.key_validator.validate_key(public_key)
         key_id = fingerprint_of(public_key)
         logger.debug(f"key_id: {key_id}")
-        if not verify_detached_signature(public_key, public_key, detached_signature):
+        if not self._verify_requester_detached(public_key, detached_signature):
             errmsg = "Detached signature does not match the supplied public key."
             logger.error(errmsg)
             raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
@@ -597,17 +618,57 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         sig_file = requests_wt / f"{key_id}{KEY_SIG_SUFFIX}"
         key_file.write_bytes(as_bytes(public_key))
         sig_file.write_bytes(as_bytes(detached_signature))
+        message = f"request {key_id}"
+        bind_payload = as_bytes(public_key) + as_bytes(detached_signature) + message.encode()
+        bind_sig = self._detach_sign(bind_payload, key_id)
+        bind_file = requests_wt / f"{key_id}{COMMIT_SIG_SUFFIX}"
+        bind_file.write_bytes(as_bytes(bind_sig))
+        if not self._verify_requester_detached_data(public_key, bind_payload, bind_sig):
+            raise GitKsException(
+                "Requester bind signature does not verify with their public key.",
+                exit_code=ERR_INVALID_USAGE,
+            )
         commit = self._commit_paths(
             requests_wt,
-            [key_file, sig_file],
-            f"request {key_id}",
+            [key_file, sig_file, bind_file],
+            message,
             signing_key=key_id,
+            require_signed=True,
+            allow_unsigned_if_bound=True,
         )
         logger.success(f"Key {key_id} stored as pending request.")
         logger.trace("Exiting")
         return KeyUploadResult(
             status=KeyUploadStatus.PENDING, message="pending", server_id=commit or key_id
         )
+
+    def _verify_requester_detached(
+        self, public_key: bytes | str, detached_signature: bytes | str
+    ) -> bool:
+        return self._verify_requester_detached_data(
+            public_key, public_key, detached_signature
+        )
+
+    def _verify_requester_detached_data(
+        self,
+        public_key: bytes | str,
+        data: bytes | str,
+        detached_signature: bytes | str,
+    ) -> bool:
+        if self.unisign is not None:
+            return self.unisign.verify_detached(data, detached_signature, public_key)
+        return verify_detached_signature(public_key, data, detached_signature)
+
+    def _detach_sign(self, data: bytes | str, key_id: str) -> str:
+        if self.unisign is not None:
+            return self.unisign.detach_sign(data, key_id)
+        home = os.environ.get("GNUPGHOME")
+        if not home:
+            raise GitKsException(
+                "GNUPGHOME is required for the requester to sign the request.",
+                exit_code=ERR_INVALID_USAGE,
+            )
+        return detached_sign(data, key_id, home)
 
     def list_pending_keys(self) -> list[KeyData]:
         requests_wt = self._stage_worktree(REQUESTS_STR)
@@ -618,7 +679,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             if path.name.startswith(".") or not path.is_file():
                 continue
             if path.name.endswith(
-                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, DENIED_REASON_SUFFIX)
+                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, COMMIT_SIG_SUFFIX, DENIED_REASON_SUFFIX)
             ):
                 continue
             pending.append(
@@ -797,6 +858,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         paths: list[Path],
         message: str,
         signing_key: str | None = None,
+        require_signed: bool = False,
+        allow_unsigned_if_bound: bool = False,
     ) -> str | None:
         git = self.git.git_opts_override(C=[worktree])
         gnupg_home = os.environ.get("GNUPGHOME")
@@ -805,16 +868,39 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         git.add_subcmd.add(*[str(p) for p in paths])
         cmd = ["commit", "-m", message]
         if signing_key:
+            git.subcmd_unchecked.run(
+                ["config", "--local", "user.signingkey", signing_key]
+            )
+            git.subcmd_unchecked.run(["config", "--local", "gpg.format", "openpgp"])
+            gpg_bin = shutil.which("gpg")
+            if gpg_bin:
+                git.subcmd_unchecked.run(
+                    ["config", "--local", "gpg.program", gpg_bin]
+                )
             cmd.append(f"-S{signing_key}!")
         try:
             git.subcmd_unchecked.run(cmd)
-        except Exception:
-            if not signing_key:
+        except Exception as e:
+            if require_signed and allow_unsigned_if_bound:
+                logger.notice(
+                    "git -S unavailable (gpg-agent); request is bound by "
+                    "requester detached signature until UniSign commit signing ships. %s",
+                    e,
+                )
+                git.subcmd_unchecked.run(["commit", "-m", message])
+            elif require_signed:
+                errmsg = (
+                    f"Request commit must be GPG-signed with the requester key {signing_key}."
+                )
+                logger.error(errmsg)
+                raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from e
+            elif signing_key:
+                logger.warning(
+                    "GPG commit signing failed; committing without -S for %s", message
+                )
+                git.subcmd_unchecked.run(["commit", "-m", message])
+            else:
                 raise
-            logger.warning(
-                "GPG commit signing failed; committing without -S for %s", message
-            )
-            git.subcmd_unchecked.run(["commit", "-m", message])
         head = git.subcmd_unchecked.run(["rev-parse", "HEAD"], text=True).stdout.strip()
         try:
             git.subcmd_unchecked.run(
@@ -825,6 +911,29 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         else:
             git.subcmd_unchecked.run(["push"])
         return head or None
+
+    def _verify_commit_with_public_key(
+        self, worktree: Path, public_key: bytes | str
+    ) -> None:
+        """Prove HEAD verifies using only the requester's public key (temp keyring)."""
+        with tempfile.TemporaryDirectory(prefix="gitks-verify-commit-") as td:
+            gpg = gnupg.GPG(gnupghome=td)
+            imported = gpg.import_keys(as_str(public_key))
+            if not imported.fingerprints:
+                raise GitKsException(
+                    "Could not load requester public key to verify the request commit.",
+                    exit_code=ERR_INVALID_USAGE,
+                )
+            git = self.git.git_opts_override(C=[worktree]).git_envs_override(
+                GNUPGHOME=td
+            )
+            try:
+                git.subcmd_unchecked.run(["verify-commit", "HEAD"])
+            except Exception as e:
+                raise GitKsException(
+                    "Request commit is not signed with the requester's public key.",
+                    exit_code=ERR_INVALID_USAGE,
+                ) from e
 
     @override
     def receive_key(self, key_id: str) -> bytes | str:
@@ -845,6 +954,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 f"Requester signature failed for approved key {key_id}.",
                 exit_code=ERR_INVALID_USAGE,
             )
+        # Return armored key only. Do not import into any GPG home here
+        # (not .git, not the user's live keyring) until import dry-run exists.
         return public_key
 
     @override
@@ -856,7 +967,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             return found
         for path in sorted(approved_wt.iterdir()):
             if path.name.startswith(".") or not path.is_file() or path.name.endswith(
-                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, DENIED_REASON_SUFFIX)
+                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, COMMIT_SIG_SUFFIX, DENIED_REASON_SUFFIX)
             ):
                 continue
             if needle and needle not in path.name.upper():
