@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from gitks.core import GitKsException
+from gitks.core import GitKsExitingException
 from gitks.core.constants import (
     OWNERS_KEYS_BRANCH,
     OWNERS_PROMOTE_BRANCH,
@@ -62,5 +62,5 @@ def test_second_owner_without_sponsor_fails(repo_local, tmp_path, gpg_home):
     second_pub, second_fp, _ = export_and_sign(gpg, requester)
     second_msg = owner_promote_message(second_fp)
     self_sig = detached_sign(second_msg, second_fp, os.environ["GNUPGHOME"])
-    with pytest.raises(GitKsException, match="sponsored"):
+    with pytest.raises(GitKsExitingException, match="sponsored"):
         ks.promote_repo_owner(second_pub, self_sig)

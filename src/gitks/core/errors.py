@@ -2,23 +2,31 @@
 # coding=utf-8
 
 """
-Exceptions related tp ``gitks``.
+Exceptions related to ``gitks``.
 """
 
-from vt.utils.errors.error_specs.exceptions import VTExitingException
+from vt.utils.errors.error_specs.exceptions import VTException, VTExitingException
 
 
-class KeyServerException(VTExitingException):
+class GitKsException(VTException):
     """
-    Exception related to keyserver.
+    Exception related to ``gitks``.
     """
 
     pass
 
 
-class GitKsException(KeyServerException):
+class GitKsExitingException(VTExitingException):
     """
-    Exception related to ``gitks``
+    ``gitks`` exception that carries an application exit code.
+    """
+
+    pass
+
+
+class KeyServerException(GitKsExitingException):
+    """
+    Exception related to keyserver.
     """
 
     pass

@@ -60,7 +60,7 @@ from gitks.core.gpg import (
     normalize_fingerprint,
     verify_detached_signature,
 )
-from gitks.core.errors import GitKsException
+from gitks.core.errors import GitKsExitingException
 from gitks.core.importing import DeferredKeyImporter, KeyImporter
 from gitks.core.model import (
     KeyDeleteResult,
@@ -258,7 +258,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         ):
             errmsg = f"Requested keys base branch {keys_base_branch} already exists. Rerun with a different branch name."
             logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
+            raise GitKsExitingException(errmsg, exit_code=ERR_STATE_ALREADY_EXISTS)
 
         logger.debug(f"Attempting to create keys base branches {keys_base_branch}")
         worktree_path = self.worktree_generator.generate_worktree(
@@ -470,11 +470,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         >>> test_obj.clone(url=SELF_REPO, base_dir=Path()) # type: ignore[arg-type] # required both SELF_REPO
         Traceback (most recent call last):
-        gitks.core.errors.GitKsException: ValueError: SELF_REPO url does not allow base_dir configuration.
+        gitks.core.errors.GitKsExitingException: ValueError: SELF_REPO url does not allow base_dir configuration.
 
         >>> test_obj.clone(url="", base_dir=SELF_REPO) # type: ignore[arg-type] # required both SELF_REPO
         Traceback (most recent call last):
-        gitks.core.errors.GitKsException: ValueError: SELF_REPO base_dir does not allow url configuration.
+        gitks.core.errors.GitKsExitingException: ValueError: SELF_REPO base_dir does not allow url configuration.
 
         * Assumes ``url`` and ``base_dir`` both as ``SELF_REPO`` if none of them are provided.
 
@@ -487,14 +487,14 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if url == SELF_REPO and base_dir != SELF_REPO:
             errmsg = "SELF_REPO url does not allow base_dir configuration."
             logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+            raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
                 errmsg
             )
 
         if base_dir == SELF_REPO and url != SELF_REPO:
             errmsg = "SELF_REPO base_dir does not allow url configuration."
             logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+            raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
                 errmsg
             )
 
@@ -541,7 +541,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                     logger.error(
                         f"Error `{e}` while cloning repo `{repo_name}` from url `{url}`"
                     )
-                    raise GitKsException(
+                    raise GitKsExitingException(
                         f"Error while cloning repo `{repo_name}` from url `{url}`",
                         exit_code=e.returncode,
                         connected=False,
@@ -586,7 +586,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             "Use request_key(public_key, detached_signature)."
         )
         logger.error(errmsg)
-        raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+        raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
             errmsg
         )
 
@@ -604,7 +604,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if not self._verify_requester_detached(public_key, detached_signature):
             errmsg = "Detached signature does not match the supplied public key."
             logger.error(errmsg)
-            raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
+            raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
                 errmsg
             )
 
@@ -628,7 +628,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         bind_file = requests_wt / f"{key_id}{COMMIT_SIG_SUFFIX}"
         bind_file.write_bytes(as_bytes(bind_sig))
         if not self._verify_requester_detached_data(public_key, bind_payload, bind_sig):
-            raise GitKsException(
+            raise GitKsExitingException(
                 "Requester bind signature does not verify with their public key.",
                 exit_code=ERR_INVALID_USAGE,
             )
@@ -664,7 +664,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
     def _detach_sign(self, data: bytes | str, key_id: str) -> str:
         home = os.environ.get("GNUPGHOME")
         if not home:
-            raise GitKsException(
+            raise GitKsExitingException(
                 "GNUPGHOME is required for the requester to sign the request.",
                 exit_code=ERR_INVALID_USAGE,
             )
@@ -722,33 +722,33 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             if not self._verify_requester_detached_data(
                 public_key, message, promotion_signature
             ):
-                raise GitKsException(
+                raise GitKsExitingException(
                     "First repo-owner promotion must be signed by that key.",
                     exit_code=ERR_INVALID_USAGE,
                 )
         else:
             if sponsor_public_key is None or sponsor_signature is None:
-                raise GitKsException(
+                raise GitKsExitingException(
                     "Further repo owners must be sponsored by an existing owner.",
                     exit_code=ERR_INVALID_USAGE,
                 )
             sponsor_id = fingerprint_of(sponsor_public_key)
             if sponsor_id not in owners:
-                raise GitKsException(
+                raise GitKsExitingException(
                     f"Sponsor {sponsor_id} is not a repo owner.",
                     exit_code=ERR_INVALID_USAGE,
                 )
             if not self._verify_requester_detached_data(
                 sponsor_public_key, message, sponsor_signature
             ):
-                raise GitKsException(
+                raise GitKsExitingException(
                     "Sponsor signature of the promotion message is invalid.",
                     exit_code=ERR_INVALID_USAGE,
                 )
             if not self._verify_requester_detached_data(
                 public_key, message, promotion_signature
             ):
-                raise GitKsException(
+                raise GitKsExitingException(
                     "New owner must also sign the promotion message.",
                     exit_code=ERR_INVALID_USAGE,
                 )
@@ -855,7 +855,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
     def _owner_sign(self, public_key: str, owner_key_id: str) -> str:
         gnupg_home = os.environ.get("GNUPGHOME")
         if not gnupg_home:
-            raise GitKsException(
+            raise GitKsExitingException(
                 "GNUPGHOME is required to sign with the repo-owner key.",
                 exit_code=ERR_INVALID_USAGE,
             )
@@ -876,7 +876,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         key_src = requests_wt / key_id
         sig_src = requests_wt / f"{key_id}{KEY_SIG_SUFFIX}"
         if not key_src.exists() or not sig_src.exists():
-            raise GitKsException(
+            raise GitKsExitingException(
                 f"Pending request {key_id} not found.",
                 exit_code=ERR_INVALID_USAGE,
             )
@@ -910,7 +910,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         key_file = requests_wt / key_id
         sig_file = requests_wt / f"{key_id}{KEY_SIG_SUFFIX}"
         if not key_file.exists() or not sig_file.exists():
-            raise GitKsException(
+            raise GitKsExitingException(
                 f"Pending request {key_id} not found.",
                 exit_code=ERR_INVALID_USAGE,
             )
@@ -991,7 +991,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                     f"Request commit must be GPG-signed with the requester key {signing_key}."
                 )
                 logger.error(errmsg)
-                raise GitKsException(errmsg, exit_code=ERR_INVALID_USAGE) from e
+                raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from e
             elif signing_key:
                 logger.warning(
                     "GPG commit signing failed; committing without -S for %s", message
@@ -1018,7 +1018,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             gpg = gnupg.GPG(gnupghome=td)
             imported = gpg.import_keys(as_str(public_key))
             if not imported.fingerprints:
-                raise GitKsException(
+                raise GitKsExitingException(
                     "Could not load requester public key to verify the request commit.",
                     exit_code=ERR_INVALID_USAGE,
                 )
@@ -1028,7 +1028,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             try:
                 git.subcmd_unchecked.run(["verify-commit", "HEAD"])
             except Exception as e:
-                raise GitKsException(
+                raise GitKsExitingException(
                     "Request commit is not signed with the requester's public key.",
                     exit_code=ERR_INVALID_USAGE,
                 ) from e
@@ -1043,12 +1043,12 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         requester_sig = (approved_wt / f"{key_file.name}{KEY_SIG_SUFFIX}").read_bytes()
         owner_sig_file = approved_wt / f"{key_file.name}{OWNER_SIG_SUFFIX}"
         if not owner_sig_file.exists():
-            raise GitKsException(
+            raise GitKsExitingException(
                 f"Approved key {key_id} is missing the repo-owner signature.",
                 exit_code=ERR_INVALID_USAGE,
             )
         if not verify_detached_signature(public_key, public_key, requester_sig):
-            raise GitKsException(
+            raise GitKsExitingException(
                 f"Requester signature failed for approved key {key_id}.",
                 exit_code=ERR_INVALID_USAGE,
             )

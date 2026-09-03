@@ -10,7 +10,7 @@ Do not import keys into ``.git`` GPG homedirs. Tests must use an isolated GPG ho
 from abc import abstractmethod
 from typing import Protocol
 
-from gitks.core.errors import GitKsException
+from gitks.core.errors import GitKsExitingException
 from vt.utils.errors.error_specs import ERR_INVALID_USAGE
 
 
@@ -35,14 +35,14 @@ class DeferredKeyImporter:
 
     def import_keys_dry_run(self, public_key: bytes | str) -> None:
         # TODO: Deferred until Trinay's dry-run logic is available.
-        raise GitKsException(
+        raise GitKsExitingException(
             "Key import dry-run is not available yet.",
             exit_code=ERR_INVALID_USAGE,
         )
 
     def import_keys(self, public_key: bytes | str) -> None:
         # TODO: Deferred until Trinay's dry-run logic is available.
-        raise GitKsException(
+        raise GitKsExitingException(
             "Direct GPG import is deferred until key import dry-run is complete. "
             "Do not import into .git GPG directories or the user's default keyring.",
             exit_code=ERR_INVALID_USAGE,

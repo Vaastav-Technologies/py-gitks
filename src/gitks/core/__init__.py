@@ -31,6 +31,7 @@ from gitks.core.model import KeyData as KeyData
 # region gitks.core.errors re-exports
 from gitks.core.errors import KeyServerException as KeyServerException
 from gitks.core.errors import GitKsException as GitKsException
+from gitks.core.errors import GitKsExitingException as GitKsExitingException
 # endregion
 
 from gitks.core.gpg import GpgKeyValidator as GpgKeyValidator

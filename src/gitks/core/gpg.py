@@ -7,12 +7,16 @@ GPG helpers for ``gitks`` key validation and detached signatures.
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
 import gnupg
 
 from gitks.core.base import KeyValidator
+from gitks.core.errors import GitKsException, GitKsExitingException
+from vt.utils.errors.error_specs import ERR_INVALID_USAGE
 
 
 def as_str(data: bytes | str) -> str:
@@ -31,19 +35,29 @@ def normalize_fingerprint(fingerprint: str) -> str:
     return fingerprint.replace(" ", "").upper()
 
 
+def _show_keys(public_key: bytes | str, gnupghome: str):
+    """Inspect key material with GnuPG ``--show-keys`` (no keyring import)."""
+    gpg = gnupg.GPG(gnupghome=gnupghome)
+    key_file = Path(gnupghome) / "key.asc"
+    key_file.write_bytes(as_bytes(public_key))
+    # python-gnupg ``scan_keys`` is ``gpg --show-keys`` (dry-run, no import).
+    return gpg.scan_keys(str(key_file))
+
+
 def fingerprint_of(public_key: bytes | str) -> str:
     """
-    Read the fingerprint via a throwaway temp GPG home (never ``.git`` or the
-    user's default keyring).
+    Read the fingerprint via ``show_keys`` in a throwaway temp GPG home
+    (never ``.git`` or the user's default keyring). Keys are not imported.
     """
     with tempfile.TemporaryDirectory(prefix="gitks-gpg-") as td:
-        gpg = gnupg.GPG(gnupghome=td)
-        imported = gpg.import_keys(as_str(public_key))
+        shown = _show_keys(public_key, td)
         fingerprints = [
-            normalize_fingerprint(fp) for fp in (imported.fingerprints or []) if fp
+            normalize_fingerprint(key.get("fingerprint", ""))
+            for key in shown
+            if key.get("fingerprint")
         ]
         if not fingerprints:
-            raise ValueError("Could not import public key data.")
+            raise GitKsException("Could not read public key data.")
         return fingerprints[0]
 
 
@@ -56,10 +70,31 @@ def verify_detached_signature(
     """
     with tempfile.TemporaryDirectory(prefix="gitks-gpg-verify-") as td:
         home = Path(td)
-        gpg = gnupg.GPG(gnupghome=str(home))
-        imported = gpg.import_keys(as_str(public_key))
-        if not imported.fingerprints:
+        shown = _show_keys(public_key, str(home))
+        if not shown:
             return False
+        keyring = home / "pub.gpg"
+        gpg_bin = shutil.which("gpg")
+        if not gpg_bin:
+            return False
+        dearmor = subprocess.run(
+            [
+                gpg_bin,
+                "--homedir",
+                str(home),
+                "--batch",
+                "--yes",
+                "--dearmor",
+                "-o",
+                str(keyring),
+            ],
+            input=as_bytes(public_key),
+            capture_output=True,
+            check=False,
+        )
+        if dearmor.returncode != 0 or not keyring.exists():
+            return False
+        gpg = gnupg.GPG(gnupghome=str(home), keyring=str(keyring))
         sig_path = home / "data.sig"
         sig_path.write_bytes(as_bytes(signature))
         verified = gpg.verify_data(str(sig_path), as_bytes(data))
@@ -80,19 +115,20 @@ def detached_sign(
         extra_args=["--yes"],
     )
     if not getattr(signed, "data", None):
-        raise ValueError(
-            f"Could not create detached signature with key {key_id}."
+        raise GitKsExitingException(
+            f"Could not create detached signature with key {key_id}.",
+            exit_code=ERR_INVALID_USAGE,
         )
     return str(signed)
 
 
 class GpgKeyValidator(KeyValidator):
-    """Validates that data is an importable OpenPGP public key."""
+    """Validates that data is an OpenPGP public key (via show_keys, no import)."""
 
     def validate_key(self, public_key: bytes | str) -> None:
         try:
             fingerprint_of(public_key)
-        except ValueError as e:
-            raise ValueError(str(e)) from e
+        except GitKsException:
+            raise
         except Exception as e:
-            raise SyntaxError("Public key data is malformed.") from e
+            raise GitKsException("Public key data is malformed.") from e

@@ -32,8 +32,7 @@ class KeyValidator(Protocol):
         Validate that the supplied key data is valid.
 
         :param public_key: the key data to be validated.
-        :raise ValueError: If key fails using the rules defined by the key validator.
-        :raise SyntaxError: If key data is malformed.
+        :raise gitks.core.errors.GitKsException: If key fails validation or is malformed.
         """
         ...
 
@@ -64,8 +63,7 @@ class KeySender(HasKeyValidator, Protocol):
 
         :param public_key: the public key data to be sent to the keyserver.
         :return: ``KeyUploadResult`` with extensive context on key's upload status.
-        :raise ValueError: If key fails using the rules defined by the key validator.
-        :raise SyntaxError: If key data is malformed.
+        :raise gitks.core.errors.GitKsException: If key fails validation or is malformed.
         """
         ...
 
@@ -83,8 +81,7 @@ class KeyReceiver(HasKeyValidator, Protocol):
         :param key_id: exact key-id to receive from the keyserver.
         :return: ``True`` if key was uploaded. ``False`` if key was not uploaded.
         :raise KeyError: if queried key does not exist on the server.
-        :raise ValueError: If key fails using the rules defined by the key validator.
-        :raise SyntaxError: If key data is malformed.
+        :raise gitks.core.errors.GitKsException: If key fails validation or is malformed.
         """
         ...
 

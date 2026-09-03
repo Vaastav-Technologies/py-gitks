@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
-from gitks.core import GitKsException
+from gitks.core import GitKsExitingException
 from gitks.core.constants import (
     GIT_KS_DIR,
     REQUESTS_STR,
@@ -265,7 +265,7 @@ class TestBranchCreations:
         git, ks = self._prep_branch(repo_local, worktree_for_test)
         git.subcmd_unchecked.run(["branch", keys_branch])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
@@ -276,7 +276,7 @@ class TestBranchCreations:
         git, ks = self._prep_branch(repo_local, worktree_for_test)
         git.subcmd_unchecked.run(["branch", f"{keys_branch}/{REQUESTS_STR}"])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
@@ -287,7 +287,7 @@ class TestBranchCreations:
         git, ks = self._prep_branch(repo_local, worktree_for_test)
         git.subcmd_unchecked.run(["branch", f"{keys_branch}/{APPROVED_STR}"])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
@@ -298,7 +298,7 @@ class TestBranchCreations:
         git, ks = self._prep_branch(repo_local, worktree_for_test)
         git.subcmd_unchecked.run(["branch", f"{keys_branch}/{DENIED_STR}"])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
