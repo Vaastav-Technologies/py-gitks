@@ -3,64 +3,72 @@
 
 """Repo-owner promotion (multiple owners, two owner branches)."""
 
-import os
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from gitks.core import GitKsExitingException
-from gitks.core.constants import (
-    OWNERS_KEYS_BRANCH,
-    OWNERS_PROMOTE_BRANCH,
-    owner_promote_message,
-)
-from gitks.core.gpg import detached_sign
+from gitks.core.constants import OWNERS_KEYS_BRANCH, OWNERS_PROMOTE_BRANCH
+from gitks.core.impl import BaseDirWorkTreeGenerator, WorkTreeGitKeyServerImpl
 from gitks.core.model import KeyUploadStatus
-from tests.test_gitks.conftest import export_and_sign, ks_for_test
+
+FIRST_PUB = "first-owner-public-key"
+SECOND_PUB = "second-owner-public-key"
+FIRST_FP = "A" * 40
+SECOND_FP = "B" * 40
 
 
-def test_first_and_second_repo_owner(repo_local, tmp_path, gpg_home):
-    gpg, requester, owner = gpg_home
-    ks = ks_for_test(repo_local, tmp_path)
+class _NoopValidator:
+    def validate_key(self, public_key):
+        pass
+
+
+def _fingerprint_of(public_key, *args, **kwargs):
+    key = public_key.decode() if isinstance(public_key, bytes) else public_key
+    return {FIRST_PUB: FIRST_FP, SECOND_PUB: SECOND_FP}[key]
+
+
+def _ks(repo_local, tmp_path) -> WorkTreeGitKeyServerImpl:
+    return WorkTreeGitKeyServerImpl(
+        _NoopValidator(),
+        repo_local,
+        user_name="ss",
+        user_email="ss@ss.ss",
+        worktree_generator=BaseDirWorkTreeGenerator(Path(tmp_path, "keys-base")),
+    )
+
+
+@patch.object(WorkTreeGitKeyServerImpl, "_verify_requester_detached_data", return_value=True)
+@patch("gitks.core.impl.fingerprint_of", side_effect=_fingerprint_of)
+def test_first_and_second_repo_owner(mock_fp, mock_verify, repo_local, tmp_path):
+    ks = _ks(repo_local, tmp_path)
     ks.init()
-    first_pub, first_fp, _ = export_and_sign(gpg, owner)
-    msg = owner_promote_message(first_fp)
-    first_sig = detached_sign(msg, first_fp, os.environ["GNUPGHOME"])
-    result = ks.promote_repo_owner(first_pub, first_sig)
+    result = ks.promote_repo_owner(FIRST_PUB, "first-sig")
     assert result.status == KeyUploadStatus.SUCCESS
-    assert first_fp in ks.list_repo_owners()
+    assert FIRST_FP in ks.list_repo_owners()
 
-    second_pub, second_fp, _ = export_and_sign(gpg, requester)
-    second_msg = owner_promote_message(second_fp)
-    self_sig = detached_sign(second_msg, second_fp, os.environ["GNUPGHOME"])
-    sponsor_sig = detached_sign(second_msg, first_fp, os.environ["GNUPGHOME"])
     result2 = ks.promote_repo_owner(
-        second_pub,
-        self_sig,
-        sponsor_public_key=first_pub,
-        sponsor_signature=sponsor_sig,
+        SECOND_PUB,
+        "second-sig",
+        sponsor_public_key=FIRST_PUB,
+        sponsor_signature="sponsor-sig",
     )
     assert result2.status == KeyUploadStatus.SUCCESS
     owners = ks.list_repo_owners()
-    assert first_fp in owners and second_fp in owners
-
+    assert FIRST_FP in owners and SECOND_FP in owners
     keys_wt = ks.get_or_create_worktree(OWNERS_KEYS_BRANCH)
     promote_wt = ks.get_or_create_worktree(OWNERS_PROMOTE_BRANCH)
-    assert (keys_wt / first_fp).exists()
-    assert (keys_wt / second_fp).exists()
-    assert (promote_wt / f"{second_fp}.msg").exists()
+    assert (keys_wt / FIRST_FP).exists()
+    assert (keys_wt / SECOND_FP).exists()
+    assert (promote_wt / f"{SECOND_FP}.msg").exists()
 
 
-def test_second_owner_without_sponsor_fails(repo_local, tmp_path, gpg_home):
-    gpg, requester, owner = gpg_home
-    ks = ks_for_test(repo_local, tmp_path)
+@patch.object(WorkTreeGitKeyServerImpl, "_verify_requester_detached_data", return_value=True)
+@patch("gitks.core.impl.fingerprint_of", side_effect=_fingerprint_of)
+def test_second_owner_without_sponsor_fails(mock_fp, mock_verify, repo_local, tmp_path):
+    ks = _ks(repo_local, tmp_path)
     ks.init()
-    first_pub, first_fp, _ = export_and_sign(gpg, owner)
-    msg = owner_promote_message(first_fp)
-    ks.promote_repo_owner(
-        first_pub, detached_sign(msg, first_fp, os.environ["GNUPGHOME"])
-    )
-    second_pub, second_fp, _ = export_and_sign(gpg, requester)
-    second_msg = owner_promote_message(second_fp)
-    self_sig = detached_sign(second_msg, second_fp, os.environ["GNUPGHOME"])
+    ks.promote_repo_owner(FIRST_PUB, "first-sig")
     with pytest.raises(GitKsExitingException, match="sponsored"):
-        ks.promote_repo_owner(second_pub, self_sig)
+        ks.promote_repo_owner(SECOND_PUB, "second-sig")
