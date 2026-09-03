@@ -16,7 +16,7 @@ def test_cli_help_lists_init_and_clone():
 
 def test_cli_requires_subcommand():
     with pytest.raises(SystemExit):
-        main_cli([])
+        build_parser().parse_args([])
 
 
 def test_cli_init(tmp_path):

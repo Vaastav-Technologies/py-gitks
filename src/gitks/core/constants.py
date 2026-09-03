@@ -33,6 +33,11 @@ GIT_KS_DIR = Path(REPO_GPG_HOME, GIT_KS_DIR_STR)
 Directory specific to gitks. Not a GNUPGHOME and not used to import keys.
 """
 
+GITKS_WORKTREES_DIR_STR = ".gitks-worktrees"
+"""
+Directory name for gitks worktrees (sibling of the repo parent).
+"""
+
 REQUESTS_STR = "requests"
 """
 Pending key inclusion requests (public key + requester detached signature).

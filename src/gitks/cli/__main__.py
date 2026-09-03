@@ -9,44 +9,44 @@ import argparse
 import sys
 from pathlib import Path
 
+from gitks.core.constants import GITKS_WORKTREES_DIR_STR
 from gitks.core.gpg import GpgKeyValidator
 from gitks.core.impl import BaseDirWorkTreeGenerator, WorkTreeGitKeyServerImpl
 from gitks.core.model import GitKSCloneResult
 
 
-def _ks(repo: Path) -> WorkTreeGitKeyServerImpl:
-    worktrees = Path(repo).resolve().parent / ".gitks-worktrees"
-    return WorkTreeGitKeyServerImpl(
-        GpgKeyValidator(),
-        Path(repo).resolve(),
-        worktree_generator=BaseDirWorkTreeGenerator(worktrees),
-    )
+def _worktrees_dir(parent: Path) -> Path:
+    return Path(parent).resolve() / GITKS_WORKTREES_DIR_STR
 
 
-def cmd_init(args: argparse.Namespace) -> int:
-    repo = Path(args.dir).resolve()
+def cmd_init(
+    repo_dir: str,
+    user_name: str | None = None,
+    user_email: str | None = None,
+) -> int:
+    repo = Path(repo_dir).resolve()
     repo.mkdir(parents=True, exist_ok=True)
     ks = WorkTreeGitKeyServerImpl(
         GpgKeyValidator(),
         repo,
-        user_name=args.user_name,
-        user_email=args.user_email,
-        worktree_generator=BaseDirWorkTreeGenerator(repo.parent / ".gitks-worktrees"),
+        user_name=user_name,
+        user_email=user_email,
+        worktree_generator=BaseDirWorkTreeGenerator(_worktrees_dir(repo.parent)),
     )
     ks.init()
     print(f"Initialised gitks repo in {repo}")
     return 0
 
 
-def cmd_clone(args: argparse.Namespace) -> int:
-    dest_parent = Path(args.dir).resolve() if args.dir else Path.cwd()
+def cmd_clone(url: str, dest_dir: str | None = None) -> int:
+    dest_parent = Path(dest_dir).resolve() if dest_dir else Path.cwd()
     ks = WorkTreeGitKeyServerImpl(
         GpgKeyValidator(),
         Path.cwd(),
         clone_base_dir=dest_parent,
-        worktree_generator=BaseDirWorkTreeGenerator(dest_parent / ".gitks-worktrees"),
+        worktree_generator=BaseDirWorkTreeGenerator(_worktrees_dir(dest_parent)),
     )
-    result: GitKSCloneResult = ks.clone(url=args.url, base_dir=dest_parent)
+    result: GitKSCloneResult = ks.clone(url=url, base_dir=dest_parent)
     print(result.message)
     if result.repo_path:
         print(str(result.repo_path))
@@ -68,7 +68,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_p.add_argument("--user-name", default=None, help="git user.name")
     init_p.add_argument("--user-email", default=None, help="git user.email")
-    init_p.set_defaults(func=cmd_init)
 
     clone_p = sub.add_parser("clone", help="Clone a gitks repo.")
     clone_p.add_argument("url", help="Git URL or path of the gitks repo.")
@@ -77,16 +76,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Parent directory to clone into (default: cwd).",
     )
-    clone_p.set_defaults(func=cmd_clone)
 
     return parser
 
 
 def main_cli(args: list[str] | None = None) -> int:
     parser = build_parser()
-    ns = parser.parse_args(args if args is not None else sys.argv[1:])
-    return int(ns.func(ns))
+    args = args if args else sys.argv[1:]
+    ns = parser.parse_args(args)
+    if ns.command == "init":
+        return cmd_init(ns.dir, ns.user_name, ns.user_email)
+    if ns.command == "clone":
+        return cmd_clone(ns.url, ns.dir)
+    parser.error(f"unknown command {ns.command}")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main_cli())
+    main_cli()

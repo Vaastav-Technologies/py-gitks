@@ -34,6 +34,6 @@ from gitks.core.errors import GitKsException as GitKsException
 # endregion
 
 from gitks.core.gpg import GpgKeyValidator as GpgKeyValidator
-from gitks.core.unisign import UniSign as UniSign
 from gitks.core.importing import KeyImporter as KeyImporter
 from gitks.core.importing import DeferredKeyImporter as DeferredKeyImporter
+

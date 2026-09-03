@@ -62,7 +62,6 @@ from gitks.core.gpg import (
 )
 from gitks.core.errors import GitKsException
 from gitks.core.importing import DeferredKeyImporter, KeyImporter
-from gitks.core.unisign import UniSign
 from gitks.core.model import (
     KeyDeleteResult,
     KeyData,
@@ -182,7 +181,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         user_email: str | None = None,
         worktree_generator: WorkTreeGenerator | None = None,
         clone_base_dir: Path = Path.home(),
-        unisign: UniSign | None = None,
         key_importer: KeyImporter | None = None,
     ):
         """
@@ -196,9 +194,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             worktrees directly at user's home directory if this parameter is not provided. This decision is mostly ok
             for most cases.
         :param clone_base_dir: Repo will be cloned to this base location upon clone operation.
-        :param unisign: Optional UniSign implementation. When omitted, detached
-            signatures use gitks GPG helpers (temp homedir only). A user-facing
-            UniSign implementation will be supplied separately.
         :param key_importer: Optional importer. Defaults to deferred (no import
             into .git or the live user keyring until dry-run exists).
         """
@@ -230,7 +225,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"computed worktree_generator: {worktree_generator}")
         self.clone_base_dir = clone_base_dir
         logger.debug(f"clone_base_dir: {self.clone_base_dir}")
-        self.unisign = unisign
         self.key_importer = key_importer or DeferredKeyImporter()
         logger.trace("Exiting")
 
@@ -665,13 +659,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         data: bytes | str,
         detached_signature: bytes | str,
     ) -> bool:
-        if self.unisign is not None:
-            return self.unisign.verify_detached(data, detached_signature, public_key)
         return verify_detached_signature(public_key, data, detached_signature)
 
     def _detach_sign(self, data: bytes | str, key_id: str) -> str:
-        if self.unisign is not None:
-            return self.unisign.detach_sign(data, key_id)
         home = os.environ.get("GNUPGHOME")
         if not home:
             raise GitKsException(
@@ -992,7 +982,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             if require_signed and allow_unsigned_if_bound:
                 logger.notice(
                     "git -S unavailable (gpg-agent); request is bound by "
-                    "requester detached signature until UniSign commit signing ships. %s",
+                    "requester detached signature. %s",
                     e,
                 )
                 git.subcmd_unchecked.run(["commit", "-m", message])
