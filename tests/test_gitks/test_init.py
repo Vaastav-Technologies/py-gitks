@@ -24,6 +24,8 @@ from gitks.core.constants import (
     CAPS_KEYSERVER_STR,
     KEYSERVER_BRANCH_F_NAME,
     KEYSERVER_APPROVERS_F_NAME,
+    OWNERS_KEYS_BRANCH,
+    OWNERS_PROMOTE_BRANCH,
 )
 from gitks.core.impl import (
     WorkTreeGitKeyServerImpl,
@@ -169,6 +171,12 @@ def test_presence_of_main_branch_does_not_affect_gitks_branch_creation(
         assert git.subcmd_unchecked.run(
             ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{stage}"], text=True
         ).stdout.strip()
+    assert git.subcmd_unchecked.run(
+        ["branch", "--list", OWNERS_KEYS_BRANCH], text=True
+    ).stdout.strip()
+    assert git.subcmd_unchecked.run(
+        ["branch", "--list", OWNERS_PROMOTE_BRANCH], text=True
+    ).stdout.strip()
 
 
 def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test):

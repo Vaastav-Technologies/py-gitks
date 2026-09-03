@@ -173,6 +173,31 @@ class KeyPublishPermission(Protocol):
         """Add a repo-owner fingerprint to KEYSERVER.APPROVERS on the conf branch."""
         ...
 
+    @abstractmethod
+    def promote_repo_owner(
+        self,
+        public_key: bytes | str,
+        promotion_signature: bytes | str,
+        *,
+        sponsor_public_key: bytes | str | None = None,
+        sponsor_signature: bytes | str | None = None,
+    ) -> KeyUploadResult:
+        """
+        Promote ``public_key`` to a repo-owner key (multiple owners allowed).
+
+        The key is stored on the owners/keys branch. The signed special
+        message is stored on the owners/promote branch.
+
+        The first owner self-signs the promotion message. Further owners must
+        be sponsored: an existing owner signs the same special message.
+        """
+        ...
+
+    @abstractmethod
+    def list_repo_owners(self) -> list[str]:
+        """Fingerprints of all repo owners (redundancy set)."""
+        ...
+
 
 class KeyServerClient(
     KeySender, KeyReceiver, KeySearcher, KeyDeleter, KeyPublishPermission, Protocol

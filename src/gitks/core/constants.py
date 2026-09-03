@@ -87,3 +87,23 @@ This branch stores all the repo configurations.
 """
 
 SELF_REPO: Final[GitSelf] = GitSelf("__SELF_REPO__")
+
+OWNERS_STR = "owners"
+GIT_KS_OWNERS_BASE_BRANCH = "/".join([GIT_KS_BRANCH_ROOT, OWNERS_STR])
+OWNERS_KEYS_STR = "keys"
+OWNERS_PROMOTE_STR = "promote"
+OWNERS_KEYS_BRANCH = "/".join([GIT_KS_OWNERS_BASE_BRANCH, OWNERS_KEYS_STR])
+"""
+All repo-owner public keys (multiple owners for redundancy).
+"""
+OWNERS_PROMOTE_BRANCH = "/".join([GIT_KS_OWNERS_BASE_BRANCH, OWNERS_PROMOTE_STR])
+"""
+Signed promotion messages for repo-owner keys.
+"""
+OWNER_PROMOTE_MESSAGE_PREFIX = "GITKS-PROMOTE-REPO-OWNER:"
+
+
+def owner_promote_message(fingerprint: str) -> str:
+    """Canonical message a key must sign to be promoted as a repo owner."""
+    fp = fingerprint.replace(" ", "").upper()
+    return f"{OWNER_PROMOTE_MESSAGE_PREFIX}{fp}\n"

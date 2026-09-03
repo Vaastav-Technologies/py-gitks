@@ -48,6 +48,9 @@ from gitks.core.constants import (
     OWNER_SIG_SUFFIX,
     COMMIT_SIG_SUFFIX,
     DENIED_REASON_SUFFIX,
+    OWNERS_KEYS_BRANCH,
+    OWNERS_PROMOTE_BRANCH,
+    owner_promote_message,
 )
 from gitks.core.gpg import (
     as_bytes,
@@ -271,6 +274,13 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         for stage_branch in keys_stage_branches:
             logger.debug(f"{stage_branch} -> {worktree_path / stage_branch}")
         logger.info(f"key base branch {keys_base_branch} created.")
+
+        logger.debug("Creating repo-owner branches (keys + promote).")
+        owner_worktree_path = self.worktree_generator.generate_worktree(
+            self.git.root_dir, OWNERS_KEYS_BRANCH, OWNERS_PROMOTE_BRANCH, orphan=True
+        )
+        logger.debug(f"Owner branch worktrees generated in {owner_worktree_path}")
+        logger.info("Repo-owner keys and promote branches created.")
 
         logger.debug("Creating gitks layout dirs (not GPG keyrings; keys are not imported here).")
         for stage in KEY_STAGE_STRS:
@@ -706,6 +716,101 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         )
         logger.success(f"Registered approver {fp}.")
 
+    def promote_repo_owner(
+        self,
+        public_key: bytes | str,
+        promotion_signature: bytes | str,
+        *,
+        sponsor_public_key: bytes | str | None = None,
+        sponsor_signature: bytes | str | None = None,
+    ) -> KeyUploadResult:
+        self.key_validator.validate_key(public_key)
+        key_id = fingerprint_of(public_key)
+        message = owner_promote_message(key_id)
+        owners = self.list_repo_owners()
+        if not owners:
+            if not self._verify_requester_detached_data(
+                public_key, message, promotion_signature
+            ):
+                raise GitKsException(
+                    "First repo-owner promotion must be signed by that key.",
+                    exit_code=ERR_INVALID_USAGE,
+                )
+        else:
+            if sponsor_public_key is None or sponsor_signature is None:
+                raise GitKsException(
+                    "Further repo owners must be sponsored by an existing owner.",
+                    exit_code=ERR_INVALID_USAGE,
+                )
+            sponsor_id = fingerprint_of(sponsor_public_key)
+            if sponsor_id not in owners:
+                raise GitKsException(
+                    f"Sponsor {sponsor_id} is not a repo owner.",
+                    exit_code=ERR_INVALID_USAGE,
+                )
+            if not self._verify_requester_detached_data(
+                sponsor_public_key, message, sponsor_signature
+            ):
+                raise GitKsException(
+                    "Sponsor signature of the promotion message is invalid.",
+                    exit_code=ERR_INVALID_USAGE,
+                )
+            if not self._verify_requester_detached_data(
+                public_key, message, promotion_signature
+            ):
+                raise GitKsException(
+                    "New owner must also sign the promotion message.",
+                    exit_code=ERR_INVALID_USAGE,
+                )
+        if key_id in owners:
+            return KeyUploadResult(
+                status=KeyUploadStatus.ALREADY_EXISTS,
+                message=f"Already a repo owner: {key_id}",
+                server_id=key_id,
+            )
+
+        promote_wt = self.get_or_create_worktree(OWNERS_PROMOTE_BRANCH)
+        keys_wt = self.get_or_create_worktree(OWNERS_KEYS_BRANCH)
+        msg_file = promote_wt / f"{key_id}.msg"
+        sig_file = promote_wt / f"{key_id}{KEY_SIG_SUFFIX}"
+        msg_file.write_text(message, encoding="utf-8")
+        sig_file.write_bytes(as_bytes(promotion_signature))
+        extra = []
+        if sponsor_signature is not None:
+            sponsor_sig_file = promote_wt / f"{key_id}.sponsor{KEY_SIG_SUFFIX}"
+            sponsor_sig_file.write_bytes(as_bytes(sponsor_signature))
+            extra.append(sponsor_sig_file)
+        self._commit_paths(
+            promote_wt,
+            [msg_file, sig_file, *extra],
+            f"promote owner {key_id}",
+        )
+        key_file = keys_wt / key_id
+        key_file.write_bytes(as_bytes(public_key))
+        self._commit_paths(keys_wt, [key_file], f"owner key {key_id}")
+        self.register_approver(key_id)
+        logger.success(f"Promoted repo owner {key_id}.")
+        return KeyUploadResult(
+            status=KeyUploadStatus.SUCCESS, message="repo owner", server_id=key_id
+        )
+
+    def list_repo_owners(self) -> list[str]:
+        keys_wt = self.get_or_create_worktree(OWNERS_KEYS_BRANCH)
+        owners: list[str] = []
+        if keys_wt.exists():
+            for path in sorted(keys_wt.iterdir()):
+                if path.name.startswith(".") or not path.is_file():
+                    continue
+                if path.name.endswith(
+                    (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, COMMIT_SIG_SUFFIX)
+                ):
+                    continue
+                owners.append(normalize_fingerprint(path.name))
+        for fp in self._read_approvers_file():
+            if fp not in owners:
+                owners.append(fp)
+        return owners
+
     def approve_key(self, key_id: str, owner_key_id: str) -> KeyUploadResult:
         logger.trace("Entering")
         key_id = normalize_fingerprint(key_id)
@@ -822,6 +927,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         return key_file.read_bytes().decode("utf-8"), sig_file.read_bytes()
 
     def _read_approvers(self, conf_wt: Path | None = None) -> list[str]:
+        return self.list_repo_owners()
+
+    def _read_approvers_file(self, conf_wt: Path | None = None) -> list[str]:
         conf_wt = conf_wt or self.get_or_create_worktree(REPO_CONF_BRANCH)
         approvers_file = conf_wt / KEYSERVER_APPROVERS_F_NAME
         if not approvers_file.exists():
