@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 Constants related to keyserver workings for ``gitks``.
@@ -15,7 +14,7 @@ from gitks.core.model import GitSelf
 GIT_KS_STR = "gitks"
 GIT_KS_BRANCH_ROOT = f"__{GIT_KS_STR}_internal"
 GIT_KS_KEYS_STR = "keys"
-GIT_KS_KEYS_BASE_BRANCH = "/".join([GIT_KS_BRANCH_ROOT, GIT_KS_KEYS_STR])
+GIT_KS_KEYS_BASE_BRANCH = f"{GIT_KS_BRANCH_ROOT}/{GIT_KS_KEYS_STR}"
 """
 Base branch for ``gitks`` to store keys.
 """
@@ -65,9 +64,9 @@ BRANCH_STR = "branch"
 CAPS_BRANCH_STR = BRANCH_STR.upper()
 DIR_STR = "dir"
 
-GIT_KS_KEYS_CONFIG_KEY = ".".join([GIT_KS_STR, GIT_KS_KEYS_STR])
-GIT_KS_BRANCH_CONFIG_KEY = ".".join([GIT_KS_KEYS_CONFIG_KEY, BRANCH_STR])
-GIT_KS_DIR_CONFIG_KEY = ".".join([GIT_KS_KEYS_CONFIG_KEY, DIR_STR])
+GIT_KS_KEYS_CONFIG_KEY = f"{GIT_KS_STR}.{GIT_KS_KEYS_STR}"
+GIT_KS_BRANCH_CONFIG_KEY = f"{GIT_KS_KEYS_CONFIG_KEY}.{BRANCH_STR}"
+GIT_KS_DIR_CONFIG_KEY = f"{GIT_KS_KEYS_CONFIG_KEY}.{DIR_STR}"
 
 ENC_STR = "enc"
 KEYSERVER_STR = "keyserver"
@@ -94,14 +93,14 @@ This branch stores all the repo configurations.
 SELF_REPO: Final[GitSelf] = GitSelf("__SELF_REPO__")
 
 OWNERS_STR = "owners"
-GIT_KS_OWNERS_BASE_BRANCH = "/".join([GIT_KS_BRANCH_ROOT, OWNERS_STR])
+GIT_KS_OWNERS_BASE_BRANCH = f"{GIT_KS_BRANCH_ROOT}/{OWNERS_STR}"
 OWNERS_KEYS_STR = "keys"
 OWNERS_PROMOTE_STR = "promote"
-OWNERS_KEYS_BRANCH = "/".join([GIT_KS_OWNERS_BASE_BRANCH, OWNERS_KEYS_STR])
+OWNERS_KEYS_BRANCH = f"{GIT_KS_OWNERS_BASE_BRANCH}/{OWNERS_KEYS_STR}"
 """
 All repo-owner public keys (multiple owners for redundancy).
 """
-OWNERS_PROMOTE_BRANCH = "/".join([GIT_KS_OWNERS_BASE_BRANCH, OWNERS_PROMOTE_STR])
+OWNERS_PROMOTE_BRANCH = f"{GIT_KS_OWNERS_BASE_BRANCH}/{OWNERS_PROMOTE_STR}"
 """
 Signed promotion messages for repo-owner keys.
 """

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 Key import contract for ``gitks``.
@@ -10,8 +9,9 @@ Do not import keys into ``.git`` GPG homedirs. Tests must use an isolated GPG ho
 from abc import abstractmethod
 from typing import Protocol
 
-from gitks.core.errors import GitKsExitingException
 from vt.utils.errors.error_specs import ERR_INVALID_USAGE
+
+from gitks.core.errors import GitKsExitingException
 
 
 class KeyImporter(Protocol):

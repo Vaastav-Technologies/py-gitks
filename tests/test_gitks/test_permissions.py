@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 tests for the request → repo-owner approve/deny permission flow.
@@ -14,8 +13,8 @@ import pytest
 
 from gitks.core.constants import (
     APPROVED_STR,
-    DENIED_STR,
     DENIED_REASON_SUFFIX,
+    DENIED_STR,
     GIT_KS_KEYS_BASE_BRANCH,
     KEY_SIG_SUFFIX,
     OWNER_SIG_SUFFIX,
@@ -93,7 +92,9 @@ def test_bad_requester_signature_moves_to_denied(repo_local, tmp_path, gpg_home)
     other_sig = detached_sign("not-the-key", fingerprint, os.environ["GNUPGHOME"])
     # request_key itself rejects a bad signature; plant a pending request with a
     # mismatched sig so approve_key takes the denied path.
-    ks.request_key(public_key, detached_sign(public_key, fingerprint, os.environ["GNUPGHOME"]))
+    ks.request_key(
+        public_key, detached_sign(public_key, fingerprint, os.environ["GNUPGHOME"])
+    )
     pending_sig = ks._stage_worktree(REQUESTS_STR) / f"{fingerprint}{KEY_SIG_SUFFIX}"
     pending_sig.write_text(other_sig, encoding="utf-8")
     owner_fp = fingerprint_of(gpg.export_keys(owner.fingerprint))
@@ -103,9 +104,9 @@ def test_bad_requester_signature_moves_to_denied(repo_local, tmp_path, gpg_home)
 
     assert result.status == KeyUploadStatus.DENIED
     assert _stage_file(ks, DENIED_STR, fingerprint).exists()
-    assert _stage_file(ks, DENIED_STR, f"{fingerprint}{DENIED_REASON_SUFFIX}").read_text(
-        encoding="utf-8"
-    )
+    assert _stage_file(
+        ks, DENIED_STR, f"{fingerprint}{DENIED_REASON_SUFFIX}"
+    ).read_text(encoding="utf-8")
     assert not _stage_file(ks, APPROVED_STR, fingerprint).exists()
 
 
@@ -150,4 +151,3 @@ def test_direct_gpg_import_is_deferred(repo_local, tmp_path, gpg_home):
         ks.key_importer.import_keys_dry_run(public_key)
     with pytest.raises(Exception, match="deferred"):
         ks.key_importer.import_keys(public_key)
-

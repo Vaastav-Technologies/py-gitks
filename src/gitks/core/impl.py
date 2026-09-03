@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 implementations related to keyserver workings for ``gitks``.
@@ -16,7 +15,7 @@ import typing
 from abc import abstractmethod
 from pathlib import Path
 from subprocess import CalledProcessError
-from typing import override, Protocol, overload
+from typing import Protocol, overload, override
 
 import gnupg
 from gitbolt.git_subprocess.base import GitCommand
@@ -24,34 +23,35 @@ from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import LgcnEnvListLC
 from logician.stdlog.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
-from vt.utils.errors.error_specs import ERR_STATE_ALREADY_EXISTS, ERR_INVALID_USAGE
+from vt.utils.errors.error_specs import ERR_INVALID_USAGE, ERR_STATE_ALREADY_EXISTS
 
-from gitks.core.base import GitKeyServer, KeyValidator, GitKeyServerClient
+from gitks.core.base import GitKeyServer, GitKeyServerClient, KeyValidator
 from gitks.core.constants import (
-    GIT_KS_DIR,
-    GIT_KS_KEYS_BASE_BRANCH,
-    REQUESTS_STR,
     APPROVED_STR,
-    DENIED_STR,
-    KEY_STAGE_STRS,
-    GIT_KS_BRANCH_CONFIG_KEY,
-    GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_STR,
-    REPO_CONF_BRANCH,
-    SELF_REPO,
     CAPS_KEYSERVER_STR,
-    KEYSERVER_URL_F_NAME,
-    GIT_KS_KEYSERVER_PATH_KEY,
-    KEYSERVER_BRANCH_F_NAME,
-    KEYSERVER_APPROVERS_F_NAME,
-    KEY_SIG_SUFFIX,
-    OWNER_SIG_SUFFIX,
     COMMIT_SIG_SUFFIX,
     DENIED_REASON_SUFFIX,
+    DENIED_STR,
+    GIT_KS_BRANCH_CONFIG_KEY,
+    GIT_KS_DIR,
+    GIT_KS_DIR_CONFIG_KEY,
+    GIT_KS_KEYS_BASE_BRANCH,
+    GIT_KS_KEYSERVER_PATH_KEY,
+    GIT_KS_STR,
+    KEY_SIG_SUFFIX,
+    KEY_STAGE_STRS,
+    KEYSERVER_APPROVERS_F_NAME,
+    KEYSERVER_BRANCH_F_NAME,
+    KEYSERVER_URL_F_NAME,
+    OWNER_SIG_SUFFIX,
     OWNERS_KEYS_BRANCH,
     OWNERS_PROMOTE_BRANCH,
+    REPO_CONF_BRANCH,
+    REQUESTS_STR,
+    SELF_REPO,
     owner_promote_message,
 )
+from gitks.core.errors import GitKsExitingException
 from gitks.core.gpg import (
     as_bytes,
     as_str,
@@ -60,16 +60,16 @@ from gitks.core.gpg import (
     normalize_fingerprint,
     verify_detached_signature,
 )
-from gitks.core.errors import GitKsExitingException
 from gitks.core.importing import DeferredKeyImporter, KeyImporter
 from gitks.core.model import (
-    KeyDeleteResult,
+    GitKSCloneResult,
+    GitSelf,
     KeyData,
+    KeyDeleteResult,
+    KeyDeleteStatus,
+    KeyServerConnectResult,
     KeyUploadResult,
     KeyUploadStatus,
-    KeyServerConnectResult,
-    GitSelf,
-    GitKSCloneResult,
 )
 from gitks.core.utils import extract_repo_name, is_git_repo
 
@@ -101,7 +101,7 @@ class WorkTreeGenerator(Protocol):
 class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
     def __init__(
         self,
-        base_dir: Path = Path.home(),
+        base_dir: Path | None = None,
         git: GitCommand | None = None,
         random_dir_len: int = 10,
     ):
@@ -115,8 +115,8 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
             created into.
         """
         logger.trace("Entering")
-        self.base_dir = base_dir
-        logger.debug(f"base_dir: {base_dir}")
+        self.base_dir = base_dir or Path.home()
+        logger.debug(f"base_dir: {self.base_dir}")
         self.git = git
         logger.debug(f"git: {git}")
         self.random_dir_len = random_dir_len
@@ -180,7 +180,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         user_name: str | None = None,
         user_email: str | None = None,
         worktree_generator: WorkTreeGenerator | None = None,
-        clone_base_dir: Path = Path.home(),
+        clone_base_dir: Path | None = None,
         key_importer: KeyImporter | None = None,
     ):
         """
@@ -223,7 +223,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             Path.home()
         )
         logger.debug(f"computed worktree_generator: {worktree_generator}")
-        self.clone_base_dir = clone_base_dir
+        self.clone_base_dir = clone_base_dir or Path.home()
         logger.debug(f"clone_base_dir: {self.clone_base_dir}")
         self.key_importer = key_importer or DeferredKeyImporter()
         logger.trace("Exiting")
@@ -276,7 +276,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Owner branch worktrees generated in {owner_worktree_path}")
         logger.info("Repo-owner keys and promote branches created.")
 
-        logger.debug("Creating gitks layout dirs (not GPG keyrings; keys are not imported here).")
+        logger.debug(
+            "Creating gitks layout dirs (not GPG keyrings; keys are not imported here)."
+        )
         for stage in KEY_STAGE_STRS:
             stage_dir = Path(self.root_dir, git_ks_dir, stage)
             logger.debug(f"attempting to create keyserver keys directory: {stage_dir}")
@@ -285,7 +287,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         self.git.subcmd_unchecked.run(
             ["config", "--local", GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)]
         )
-        logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
+        logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={git_ks_dir!s}")
 
         logger.debug("Checking if repo configuration branch exists already.")
         repo_conf_worktree = self.get_or_create_worktree(REPO_CONF_BRANCH, orphan=True)
@@ -487,16 +489,16 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if url == SELF_REPO and base_dir != SELF_REPO:
             errmsg = "SELF_REPO url does not allow base_dir configuration."
             logger.error(errmsg)
-            raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
-                errmsg
-            )
+            raise GitKsExitingException(
+                errmsg, exit_code=ERR_INVALID_USAGE
+            ) from ValueError(errmsg)
 
         if base_dir == SELF_REPO and url != SELF_REPO:
             errmsg = "SELF_REPO base_dir does not allow url configuration."
             logger.error(errmsg)
-            raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
-                errmsg
-            )
+            raise GitKsExitingException(
+                errmsg, exit_code=ERR_INVALID_USAGE
+            ) from ValueError(errmsg)
 
         if base_dir == SELF_REPO and url == SELF_REPO:
             message = "No clone needed as repo itself is the keyserver."
@@ -507,15 +509,18 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 message=message,
                 repo_path=self.repo_root_dir,
                 code=200,
-                details=dict(status="OK", operation="NOOP"),
+                details={"status": "OK", "operation": "NOOP"},
             )
         else:
-            base_dir = base_dir or self.clone_base_dir
-            logger.debug(f"computed base_dir: {base_dir}")
+            clone_url = str(url)
+            clone_parent = (
+                base_dir if isinstance(base_dir, Path) else self.clone_base_dir
+            )
+            logger.debug(f"computed base_dir: {clone_parent}")
             logger.info("Trying to clone the repo in desired base_dir.")
-            repo_name = extract_repo_name(url)
+            repo_name = extract_repo_name(clone_url)
             logger.debug(f"Extracted repo name: {repo_name}")
-            repo_dir = Path(base_dir, repo_name)
+            repo_dir = Path(clone_parent, repo_name)
             logger.debug(f"repo_dir: {repo_dir}")
             if is_git_repo(repo_dir):
                 message = f"Repo already cloned at {repo_dir}"
@@ -525,11 +530,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                     message=message,
                     repo_path=repo_dir,
                     code=200,
-                    details=dict(status="ALREADY_EXISTS", operation="NOOP"),
+                    details={"status": "ALREADY_EXISTS", "operation": "NOOP"},
                 )
             else:
                 logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
-                clone_cmd = ["git", "clone", str(url), str(repo_dir)]
+                clone_cmd = ["git", "clone", clone_url, str(repo_dir)]
                 logger.debug(f"Running: {clone_cmd}")
                 try:
                     completed_process = subprocess.run(
@@ -559,9 +564,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                         message=completed_process.stderr,
                         repo_path=repo_dir,
                         code=completed_process.returncode,
-                        details=dict(
-                            status="OK", operation="clone", out=completed_process.stdout
-                        ),
+                        details={
+                            "status": "OK",
+                            "operation": "clone",
+                            "out": completed_process.stdout,
+                        },
                     )
         logger.trace("Exiting")
         return retval
@@ -586,9 +593,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             "Use request_key(public_key, detached_signature)."
         )
         logger.error(errmsg)
-        raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
-            errmsg
-        )
+        raise GitKsExitingException(
+            errmsg, exit_code=ERR_INVALID_USAGE
+        ) from ValueError(errmsg)
 
     def request_key(
         self, public_key: bytes | str, detached_signature: bytes | str
@@ -604,9 +611,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if not self._verify_requester_detached(public_key, detached_signature):
             errmsg = "Detached signature does not match the supplied public key."
             logger.error(errmsg)
-            raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from ValueError(
-                errmsg
-            )
+            raise GitKsExitingException(
+                errmsg, exit_code=ERR_INVALID_USAGE
+            ) from ValueError(errmsg)
 
         if self._key_present(APPROVED_STR, key_id) or self._key_present(
             REQUESTS_STR, key_id
@@ -623,7 +630,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         key_file.write_bytes(as_bytes(public_key))
         sig_file.write_bytes(as_bytes(detached_signature))
         message = f"request {key_id}"
-        bind_payload = as_bytes(public_key) + as_bytes(detached_signature) + message.encode()
+        bind_payload = (
+            as_bytes(public_key) + as_bytes(detached_signature) + message.encode()
+        )
         bind_sig = self._detach_sign(bind_payload, key_id)
         bind_file = requests_wt / f"{key_id}{COMMIT_SIG_SUFFIX}"
         bind_file.write_bytes(as_bytes(bind_sig))
@@ -643,7 +652,9 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.success(f"Key {key_id} stored as pending request.")
         logger.trace("Exiting")
         return KeyUploadResult(
-            status=KeyUploadStatus.PENDING, message="pending", server_id=commit or key_id
+            status=KeyUploadStatus.PENDING,
+            message="pending",
+            server_id=commit or key_id,
         )
 
     def _verify_requester_detached(
@@ -679,7 +690,12 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             if path.name.startswith(".") or not path.is_file():
                 continue
             if path.name.endswith(
-                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, COMMIT_SIG_SUFFIX, DENIED_REASON_SUFFIX)
+                (
+                    KEY_SIG_SUFFIX,
+                    OWNER_SIG_SUFFIX,
+                    COMMIT_SIG_SUFFIX,
+                    DENIED_REASON_SUFFIX,
+                )
             ):
                 continue
             pending.append(
@@ -701,9 +717,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             return
         existing.append(fp)
         approvers_file.write_text("\n".join(existing) + "\n", encoding="utf-8")
-        self._commit_paths(
-            conf_wt, [approvers_file], f"register approver {fp}"
-        )
+        self._commit_paths(conf_wt, [approvers_file], f"register approver {fp}")
         logger.success(f"Registered approver {fp}.")
 
     def promote_repo_owner(
@@ -829,9 +843,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             extra_files=None,
         )
 
-    def deny_key(
-        self, key_id: str, owner_key_id: str, reason: str
-    ) -> KeyUploadResult:
+    def deny_key(self, key_id: str, owner_key_id: str, reason: str) -> KeyUploadResult:
         key_id = normalize_fingerprint(key_id)
         owner_key_id = normalize_fingerprint(owner_key_id)
         return self._move_to_denied(key_id, owner_key_id, reason)
@@ -962,7 +974,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         git = self.git.git_opts_override(C=[worktree])
         gnupg_home = os.environ.get("GNUPGHOME")
         if gnupg_home:
-            git = git.git_envs_override(GNUPGHOME=gnupg_home)
+            git = git.git_envs_override(GNUPGHOME=Path(gnupg_home))
         git.add_subcmd.add(*[str(p) for p in paths])
         cmd = ["commit", "-m", message]
         if signing_key:
@@ -972,13 +984,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             git.subcmd_unchecked.run(["config", "--local", "gpg.format", "openpgp"])
             gpg_bin = shutil.which("gpg")
             if gpg_bin:
-                git.subcmd_unchecked.run(
-                    ["config", "--local", "gpg.program", gpg_bin]
-                )
+                git.subcmd_unchecked.run(["config", "--local", "gpg.program", gpg_bin])
             cmd.append(f"-S{signing_key}!")
         try:
             git.subcmd_unchecked.run(cmd)
-        except Exception as e:
+        except CalledProcessError as e:
             if require_signed and allow_unsigned_if_bound:
                 logger.notice(
                     "git -S unavailable (gpg-agent); request is bound by "
@@ -987,9 +997,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 )
                 git.subcmd_unchecked.run(["commit", "-m", message])
             elif require_signed:
-                errmsg = (
-                    f"Request commit must be GPG-signed with the requester key {signing_key}."
-                )
+                errmsg = f"Request commit must be GPG-signed with the requester key {signing_key}."
                 logger.error(errmsg)
                 raise GitKsExitingException(errmsg, exit_code=ERR_INVALID_USAGE) from e
             elif signing_key:
@@ -1004,7 +1012,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             git.subcmd_unchecked.run(
                 ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]
             )
-        except Exception:
+        except CalledProcessError:
             logger.debug("No upstream configured; skip push.")
         else:
             git.subcmd_unchecked.run(["push"])
@@ -1023,11 +1031,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                     exit_code=ERR_INVALID_USAGE,
                 )
             git = self.git.git_opts_override(C=[worktree]).git_envs_override(
-                GNUPGHOME=td
+                GNUPGHOME=Path(td)
             )
             try:
                 git.subcmd_unchecked.run(["verify-commit", "HEAD"])
-            except Exception as e:
+            except CalledProcessError as e:
                 raise GitKsExitingException(
                     "Request commit is not signed with the requester's public key.",
                     exit_code=ERR_INVALID_USAGE,
@@ -1064,8 +1072,17 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         if not approved_wt.exists():
             return found
         for path in sorted(approved_wt.iterdir()):
-            if path.name.startswith(".") or not path.is_file() or path.name.endswith(
-                (KEY_SIG_SUFFIX, OWNER_SIG_SUFFIX, COMMIT_SIG_SUFFIX, DENIED_REASON_SUFFIX)
+            if (
+                path.name.startswith(".")
+                or not path.is_file()
+                or path.name.endswith(
+                    (
+                        KEY_SIG_SUFFIX,
+                        OWNER_SIG_SUFFIX,
+                        COMMIT_SIG_SUFFIX,
+                        DENIED_REASON_SUFFIX,
+                    )
+                )
             ):
                 continue
             if needle and needle not in path.name.upper():
@@ -1077,7 +1094,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
     @override
     def delete_key(self, key_id: str) -> KeyDeleteResult:
-        pass
+        return KeyDeleteResult(
+            status=KeyDeleteStatus.ERROR,
+            message="not implemented",
+            server_id=key_id,
+        )
 
     @override
     @property

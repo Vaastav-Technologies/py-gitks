@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """CLI argparse for gitks."""
 
@@ -21,7 +20,15 @@ def test_cli_requires_subcommand():
 
 def test_cli_init_args():
     ns = build_parser().parse_args(
-        ["init", "--dir", "repo", "--user-name", "cli", "--user-email", "cli@example.test"]
+        [
+            "init",
+            "--dir",
+            "repo",
+            "--user-name",
+            "cli",
+            "--user-email",
+            "cli@example.test",
+        ]
     )
     assert ns.command == "init"
     assert ns.dir == "repo"
@@ -30,7 +37,9 @@ def test_cli_init_args():
 
 
 def test_cli_clone_args():
-    ns = build_parser().parse_args(["clone", "https://example.test/ks.git", "--dir", "parent"])
+    ns = build_parser().parse_args(
+        ["clone", "https://example.test/ks.git", "--dir", "parent"]
+    )
     assert ns.command == "clone"
     assert ns.url == "https://example.test/ks.git"
     assert ns.dir == "parent"

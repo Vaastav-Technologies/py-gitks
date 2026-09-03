@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 interfaces related to keyserver workings for ``gitks``.
@@ -11,14 +10,14 @@ from typing import Protocol, overload
 
 from vt.utils.commons.commons.op import RootDirOp
 
-from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR, SELF_REPO
+from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BASE_BRANCH, SELF_REPO
 from gitks.core.model import (
-    KeyUploadResult,
+    GitKSCloneResult,
+    GitSelf,
     KeyData,
     KeyDeleteResult,
     KeyServerConnectResult,
-    GitKSCloneResult,
-    GitSelf,
+    KeyUploadResult,
 )
 
 
@@ -121,8 +120,6 @@ class KeyServer(Protocol):
     Interface of a keyserver.
     """
 
-    ...
-
 
 class KeyPublishPermission(Protocol):
     """
@@ -159,9 +156,7 @@ class KeyPublishPermission(Protocol):
         ...
 
     @abstractmethod
-    def deny_key(
-        self, key_id: str, owner_key_id: str, reason: str
-    ) -> KeyUploadResult:
+    def deny_key(self, key_id: str, owner_key_id: str, reason: str) -> KeyUploadResult:
         """Explicitly deny a pending request (keys/denied) with a reason."""
         ...
 

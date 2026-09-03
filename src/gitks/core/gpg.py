@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 GPG helpers for ``gitks`` key validation and detached signatures.
@@ -13,10 +12,10 @@ import tempfile
 from pathlib import Path
 
 import gnupg
+from vt.utils.errors.error_specs import ERR_INVALID_USAGE
 
 from gitks.core.base import KeyValidator
 from gitks.core.errors import GitKsException, GitKsExitingException
-from vt.utils.errors.error_specs import ERR_INVALID_USAGE
 
 
 def as_str(data: bytes | str) -> str:
@@ -101,9 +100,7 @@ def verify_detached_signature(
         return bool(verified)
 
 
-def detached_sign(
-    data: bytes | str, key_id: str, gnupg_home: Path | str
-) -> str:
+def detached_sign(data: bytes | str, key_id: str, gnupg_home: Path | str) -> str:
     """
     Create an armored detached signature of ``data`` using ``key_id`` in ``gnupg_home``.
     """
@@ -130,5 +127,5 @@ class GpgKeyValidator(KeyValidator):
             fingerprint_of(public_key)
         except GitKsException:
             raise
-        except Exception as e:
+        except (OSError, ValueError, RuntimeError, UnicodeError) as e:
             raise GitKsException("Public key data is malformed.") from e

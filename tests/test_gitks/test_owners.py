@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """Repo-owner promotion (multiple owners, two owner branches)."""
 
@@ -39,7 +38,9 @@ def _ks(repo_local, tmp_path) -> WorkTreeGitKeyServerImpl:
     )
 
 
-@patch.object(WorkTreeGitKeyServerImpl, "_verify_requester_detached_data", return_value=True)
+@patch.object(
+    WorkTreeGitKeyServerImpl, "_verify_requester_detached_data", return_value=True
+)
 @patch("gitks.core.impl.fingerprint_of", side_effect=_fingerprint_of)
 def test_first_and_second_repo_owner(mock_fp, mock_verify, repo_local, tmp_path):
     ks = _ks(repo_local, tmp_path)
@@ -64,7 +65,9 @@ def test_first_and_second_repo_owner(mock_fp, mock_verify, repo_local, tmp_path)
     assert (promote_wt / f"{SECOND_FP}.msg").exists()
 
 
-@patch.object(WorkTreeGitKeyServerImpl, "_verify_requester_detached_data", return_value=True)
+@patch.object(
+    WorkTreeGitKeyServerImpl, "_verify_requester_detached_data", return_value=True
+)
 @patch("gitks.core.impl.fingerprint_of", side_effect=_fingerprint_of)
 def test_second_owner_without_sponsor_fails(mock_fp, mock_verify, repo_local, tmp_path):
     ks = _ks(repo_local, tmp_path)

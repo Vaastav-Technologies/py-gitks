@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """Shared fixtures for gitks tests."""
 
@@ -43,9 +42,7 @@ def gpg_home(tmp_path):
     (home / "gpg.conf").write_text(
         "pinentry-mode loopback\nbatch\nno-tty\n", encoding="utf-8"
     )
-    (home / "gpg-agent.conf").write_text(
-        "allow-loopback-pinentry\n", encoding="utf-8"
-    )
+    (home / "gpg-agent.conf").write_text("allow-loopback-pinentry\n", encoding="utf-8")
     prev = os.environ.get("GNUPGHOME")
     os.environ["GNUPGHOME"] = str(home)
     gpg = gnupg.GPG(gnupghome=str(home))

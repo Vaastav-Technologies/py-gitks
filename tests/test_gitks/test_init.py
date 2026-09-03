@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 tests relating to ``gitks init`` operation.
@@ -12,25 +11,25 @@ from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
 from gitks.core import GitKsExitingException
 from gitks.core.constants import (
-    GIT_KS_DIR,
-    REQUESTS_STR,
     APPROVED_STR,
-    DENIED_STR,
-    KEY_STAGE_STRS,
-    GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_STR,
-    GIT_KS_KEYS_BASE_BRANCH,
-    REPO_CONF_BRANCH,
     CAPS_KEYSERVER_STR,
-    KEYSERVER_BRANCH_F_NAME,
+    DENIED_STR,
+    GIT_KS_DIR,
+    GIT_KS_DIR_CONFIG_KEY,
+    GIT_KS_KEYS_BASE_BRANCH,
+    GIT_KS_STR,
+    KEY_STAGE_STRS,
     KEYSERVER_APPROVERS_F_NAME,
+    KEYSERVER_BRANCH_F_NAME,
     OWNERS_KEYS_BRANCH,
     OWNERS_PROMOTE_BRANCH,
+    REPO_CONF_BRANCH,
+    REQUESTS_STR,
 )
 from gitks.core.impl import (
-    WorkTreeGitKeyServerImpl,
     BaseDirWorkTreeGenerator,
     WorkTreeGenerator,
+    WorkTreeGitKeyServerImpl,
 )
 from gitks.core.utils import is_git_repo
 
@@ -68,14 +67,14 @@ class TestSimpleInit:
 
     @pytest.mark.parametrize("keys_branch", list(KEY_STAGE_STRS))
     def test_sets_keys_worktree(self, repo_local, worktree_for_test, keys_branch):
-        git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
+        _git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
         assert f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}" in worktree_details
 
     @pytest.mark.parametrize("keys_branch", list(KEY_STAGE_STRS))
     def test_sets_keys_worktree_in_base_dir(
         self, repo_local, worktree_for_test, keys_branch
     ):
-        git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
+        _git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
         assert worktree_details[f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"][
             0
         ].is_relative_to(Path(repo_local).parent)
@@ -91,7 +90,7 @@ class TestSimpleInit:
             .stdout.strip()
             .split("\0")
         )
-        worktree_details: dict[str, tuple[Path, str]] = dict()
+        worktree_details: dict[str, tuple[Path, str]] = {}
         i = 0
         while i < len(worktree_details_lst):
             if worktree_details_lst[i].strip() == "":
