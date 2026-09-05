@@ -45,7 +45,7 @@ dependencies = [
     "logician >= 0.0.0.dev9",
     "vt-commons >= 0.0.1.dev9",
     "vt-err-hndlr >= 0.0.0.dev6",
-    "gitbolt >= 0.0.0.dev11",
+    "gitbolt >= 0.0.0.dev25",
 ]
 
 [dependency-groups]

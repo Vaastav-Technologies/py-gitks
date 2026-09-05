@@ -16,8 +16,8 @@ from subprocess import CalledProcessError
 from typing import override, Protocol, overload
 
 import gitbolt
-from gitbolt.git_subprocess.base import GitCommand
-from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
+from gitbolt.subprocess.base import GitCommand
+from gitbolt.subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import LgcnEnvListLC
 from logician.stdlog.configurator import StdLoggerConfigurator
 from vt.utils.commons.commons.op import RootDirOp
