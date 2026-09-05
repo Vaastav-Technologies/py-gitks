@@ -8,7 +8,7 @@ tests relating to ``gitks init`` operation.
 from pathlib import Path
 
 import pytest
-from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
+from gitbolt.subprocess.impl.simple import SimpleGitCommand
 
 from gitks.core import GitKsException
 from gitks.core.constants import (
@@ -108,7 +108,6 @@ class TestSimpleInit:
         user_name = "ss"
         user_email = "ss@ss.ss"
         ks = WorkTreeGitKeyServerImpl(
-            None,  # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local,
             user_name=user_name,
             user_email=user_email,
@@ -126,7 +125,6 @@ def test_presence_of_main_branch_does_not_not_matter(
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
-        None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
         user_name=user_name,
         user_email=user_email,
@@ -174,7 +172,6 @@ def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
-        None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
         user_name,
         user_email,
@@ -195,7 +192,6 @@ def test_centrally_registers_branch_name_if_different_supplied(
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
-        None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
         user_name,
         user_email,
@@ -216,7 +212,6 @@ def test_registration_even_if_defaults_are_used(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
-        None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
         user_name,
         user_email,
@@ -282,7 +277,6 @@ class TestBranchCreations:
         user_name = "ss"
         user_email = "ss@ss.ss"
         ks = WorkTreeGitKeyServerImpl(
-            None,  # type: ignore[arg-type] # required KeyValidator, provided None
             repo_local,
             user_name,
             user_email,
@@ -302,7 +296,6 @@ def test_register_gitks_as_keyserver_on_success(repo_local, worktree_for_test):
     user_name = "ss"
     user_email = "ss@ss.ss"
     ks = WorkTreeGitKeyServerImpl(
-        None,  # type: ignore[arg-type] # required KeyValidator, provided None
         repo_local,
         user_name,
         user_email,
@@ -316,3 +309,4 @@ def test_register_gitks_as_keyserver_on_success(repo_local, worktree_for_test):
         ).stdout.strip()
         == GIT_KS_STR
     )
+
