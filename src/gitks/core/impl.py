@@ -54,7 +54,7 @@ from gitks.core.gpg_validator import GPGKeyValidator
 _base_logger = logging.getLogger(__name__)
 logger = LgcnEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
 
-def _get_key_validator() -> KeyValidator:
+def get_git_config_ks() -> KeyValidator:
     """
     Get the configured key validator for this repository.
     """
@@ -204,7 +204,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Supplied user_email: {user_email}")
         self.git = SimpleGitCommand(self.repo_root_dir)
         logger.debug(f"Obtained git instance: {self.git}")
-        self._key_validator = _get_key_validator()
+        self._key_validator = get_git_config_ks()
         logger.debug(f"Obtained key_validator: {self._key_validator}")
         self.user_name = user_name
         if user_name:  # else autodetect
