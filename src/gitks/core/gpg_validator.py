@@ -23,18 +23,21 @@ class GPGKeyValidator:
         """
         Validate the supplied GPG public key.
 
-        GPG is responsible for parsing and validating the key data.
-        Secret/private keys are explicitly rejected.
+        GPG is responsible for parsing and validating the key data
+        without importing the key. Secret/private keys are explicitly
+        rejected.
 
         :param public_key: GPG key data to validate.
         :raise SyntaxError: If the key data is malformed or cannot
             be processed as valid OpenPGP data.
-        :raise ValueError: If the supplied data contains a secret key
-            or is otherwise not a valid public key.
+        :raise ValueError: If the supplied data contains a secret key.
         """
 
         with tempfile.TemporaryDirectory() as gpg_home:
-            gpg = gnupg.GPG(gnupghome=gpg_home)
+            gpg = gnupg.GPG(
+                gnupghome=gpg_home,
+                options=["--dry-run"],
+            )
 
             result = gpg.import_keys(public_key)
 
@@ -43,12 +46,8 @@ class GPGKeyValidator:
                     "Private/secret keys are not allowed."
                 )
 
-            if not result.fingerprints:
+            if result.results:
                 raise SyntaxError(
                     "The supplied key could not be processed by GPG."
                 )
-
-            if result.imported <= 0:
-                raise ValueError(
-                    "The supplied key is not a valid public key."
-                )
+            
