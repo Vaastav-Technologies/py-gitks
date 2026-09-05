@@ -9,8 +9,9 @@ import tempfile
 
 import gnupg
 
+from gitks.core.base import KeyValidator
 
-class GPGKeyValidator:
+class GPGKeyValidator(KeyValidator):
     """
     GPG-backed implementation of the key validator.
 
