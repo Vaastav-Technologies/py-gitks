@@ -31,6 +31,7 @@ from gitks.core.constants import (
     FINAL_STR,
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
+    GIT_KS_VALIDATOR_CONFIG_KEY,
     GIT_KS_STR,
     REPO_CONF_BRANCH,
     SELF_REPO,
@@ -54,19 +55,17 @@ from gitks.core.gpg_validator import GPGKeyValidator
 _base_logger = logging.getLogger(__name__)
 logger = LgcnEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
 
-def get_git_config_ks() -> KeyValidator:
+def get_git_config_ks(git: GitCommand) -> KeyValidator:
     """
     Get the configured key validator for this repository.
     """
-
-    git = gitbolt.get_git_command()
 
     key_result = git.subcmd_unchecked().run(
         [
             "config",
             "--local",
             "--get",
-            "gitks.validator",
+            GIT_KS_VALIDATOR_CONFIG_KEY,
         ]
     )
 
@@ -204,7 +203,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Supplied user_email: {user_email}")
         self.git = SimpleGitCommand(self.repo_root_dir)
         logger.debug(f"Obtained git instance: {self.git}")
-        self._key_validator = get_git_config_ks()
+        self._key_validator = get_git_config_ks(self.git)
         logger.debug(f"Obtained key_validator: {self._key_validator}")
         self.user_name = user_name
         if user_name:  # else autodetect
