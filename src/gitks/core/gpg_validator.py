@@ -38,14 +38,14 @@ class GPGKeyValidator:
 
             result = gpg.import_keys(public_key)
 
-            if not result.fingerprints:
-                raise SyntaxError(
-                    "The supplied key could not be processed by GPG."
-                )
-
             if result.sec_read > 0 or result.sec_imported > 0:
                 raise ValueError(
                     "Private/secret keys are not allowed."
+                )
+
+            if not result.fingerprints:
+                raise SyntaxError(
+                    "The supplied key could not be processed by GPG."
                 )
 
             if result.imported <= 0:

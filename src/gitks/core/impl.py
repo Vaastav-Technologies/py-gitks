@@ -15,6 +15,7 @@ from pathlib import Path
 from subprocess import CalledProcessError
 from typing import override, Protocol, overload
 
+import gitbolt
 from gitbolt.git_subprocess.base import GitCommand
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import LgcnEnvListLC
@@ -48,9 +49,35 @@ from gitks.core.model import (
     GitKSCloneResult,
 )
 from gitks.core.utils import extract_repo_name, is_git_repo
+from gitks.core.gpg_validator import GPGKeyValidator
 
 _base_logger = logging.getLogger(__name__)
 logger = LgcnEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
+
+def _get_key_validator() -> KeyValidator:
+    """
+    Get the configured key validator for this repository.
+    """
+
+    git = gitbolt.get_git_command()
+
+    key_result = git.subcmd_unchecked().run(
+        [
+            "config",
+            "--local",
+            "--get",
+            "gitks.validator",
+        ]
+    )
+
+    validator_name = key_result.stdout.decode("utf-8").strip().lower()
+
+    if validator_name == "gpg":
+        return GPGKeyValidator()
+
+    raise ValueError(
+        f"Unsupported key validator: {validator_name}"
+    )
 
 
 class WorkTreeGenerator(Protocol):
@@ -151,7 +178,6 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
 class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
     def __init__(
         self,
-        key_validator: KeyValidator,
         repo_root_dir: Path | None = None,
         user_name: str | None = None,
         user_email: str | None = None,
@@ -171,8 +197,6 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         :param clone_base_dir: Repo will be cloned to this base location upon clone operation.
         """
         logger.trace("Entering")
-        self._key_validator = key_validator
-        logger.debug(f"key_validator: {key_validator}")
         logger.debug(f"Supplied repo_root_dir: {repo_root_dir}")
         self.repo_root_dir = repo_root_dir or Path.cwd()
         logger.debug(f"computed repo_root_dir: {repo_root_dir}")
@@ -180,6 +204,8 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(f"Supplied user_email: {user_email}")
         self.git = SimpleGitCommand(self.repo_root_dir)
         logger.debug(f"Obtained git instance: {self.git}")
+        self._key_validator = _get_key_validator()
+        logger.debug(f"Obtained key_validator: {self._key_validator}")
         self.user_name = user_name
         if user_name:  # else autodetect
             self.git = self.git.git_envs_override(
