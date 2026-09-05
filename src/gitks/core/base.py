@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 interfaces related to keyserver workings for ``gitks``.
@@ -11,14 +10,14 @@ from typing import Protocol, overload
 
 from vt.utils.commons.commons.op import RootDirOp
 
-from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR, SELF_REPO
+from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BASE_BRANCH, SELF_REPO
 from gitks.core.model import (
-    KeyUploadResult,
+    GitKSCloneResult,
+    GitSelf,
     KeyData,
     KeyDeleteResult,
     KeyServerConnectResult,
-    GitKSCloneResult,
-    GitSelf,
+    KeyUploadResult,
 )
 
 
@@ -32,8 +31,7 @@ class KeyValidator(Protocol):
         Validate that the supplied key data is valid.
 
         :param public_key: the key data to be validated.
-        :raise ValueError: If key fails using the rules defined by the key validator.
-        :raise SyntaxError: If key data is malformed.
+        :raise gitks.core.errors.GitKsException: If key fails validation or is malformed.
         """
         ...
 
@@ -64,8 +62,7 @@ class KeySender(HasKeyValidator, Protocol):
 
         :param public_key: the public key data to be sent to the keyserver.
         :return: ``KeyUploadResult`` with extensive context on key's upload status.
-        :raise ValueError: If key fails using the rules defined by the key validator.
-        :raise SyntaxError: If key data is malformed.
+        :raise gitks.core.errors.GitKsException: If key fails validation or is malformed.
         """
         ...
 
@@ -83,8 +80,7 @@ class KeyReceiver(HasKeyValidator, Protocol):
         :param key_id: exact key-id to receive from the keyserver.
         :return: ``True`` if key was uploaded. ``False`` if key was not uploaded.
         :raise KeyError: if queried key does not exist on the server.
-        :raise ValueError: If key fails using the rules defined by the key validator.
-        :raise SyntaxError: If key data is malformed.
+        :raise gitks.core.errors.GitKsException: If key fails validation or is malformed.
         """
         ...
 
@@ -124,10 +120,80 @@ class KeyServer(Protocol):
     Interface of a keyserver.
     """
 
-    ...
+
+class KeyPublishPermission(Protocol):
+    """
+    Request-to-approval permission flow for publishing keys.
+    """
+
+    @abstractmethod
+    def request_key(
+        self, public_key: bytes | str, detached_signature: bytes | str
+    ) -> KeyUploadResult:
+        """
+        Submit a public key onto keys/requests. Anyone may request; there is no
+        requester allow-list.
+
+        The requester must:
+
+        - detach-sign their own public key, and
+        - GPG-sign the request commit so it verifies with that same public key.
+        """
+        ...
+
+    @abstractmethod
+    def list_pending_keys(self) -> list[KeyData]:
+        """Keys currently pending on keys/requests."""
+        ...
+
+    @abstractmethod
+    def approve_key(self, key_id: str, owner_key_id: str) -> KeyUploadResult:
+        """
+        Repo owner verifies the requester signature. On success, owner-signs the
+        key and moves it to keys/approved. On failure, or if the owner is not
+        authorized, moves it to keys/denied.
+        """
+        ...
+
+    @abstractmethod
+    def deny_key(self, key_id: str, owner_key_id: str, reason: str) -> KeyUploadResult:
+        """Explicitly deny a pending request (keys/denied) with a reason."""
+        ...
+
+    @abstractmethod
+    def register_approver(self, owner_key_id: str) -> None:
+        """Add a repo-owner fingerprint to KEYSERVER.APPROVERS on the conf branch."""
+        ...
+
+    @abstractmethod
+    def promote_repo_owner(
+        self,
+        public_key: bytes | str,
+        promotion_signature: bytes | str,
+        *,
+        sponsor_public_key: bytes | str | None = None,
+        sponsor_signature: bytes | str | None = None,
+    ) -> KeyUploadResult:
+        """
+        Promote ``public_key`` to a repo-owner key (multiple owners allowed).
+
+        The key is stored on the owners/keys branch. The signed special
+        message is stored on the owners/promote branch.
+
+        The first owner self-signs the promotion message. Further owners must
+        be sponsored: an existing owner signs the same special message.
+        """
+        ...
+
+    @abstractmethod
+    def list_repo_owners(self) -> list[str]:
+        """Fingerprints of all repo owners (redundancy set)."""
+        ...
 
 
-class KeyServerClient(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol):
+class KeyServerClient(
+    KeySender, KeyReceiver, KeySearcher, KeyDeleter, KeyPublishPermission, Protocol
+):
     """
     Interface of a keyserver. Can:
 
@@ -135,6 +201,7 @@ class KeyServerClient(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol)
     - receive key with exact key id.
     - send key with exact key data.
     - delete key with exact key id.
+    - request, approve, or deny key publication.
     """
 
     @abstractmethod
