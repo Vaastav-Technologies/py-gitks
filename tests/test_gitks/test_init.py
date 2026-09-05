@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# coding=utf-8
 
 """
 tests relating to ``gitks init`` operation.
@@ -10,22 +9,27 @@ from pathlib import Path
 import pytest
 from gitbolt.git_subprocess.impl.simple import SimpleGitCommand
 
-from gitks.core import GitKsException
+from gitks.core import GitKsExitingException
 from gitks.core.constants import (
-    GIT_KS_DIR,
-    TEST_STR,
-    FINAL_STR,
-    GIT_KS_DIR_CONFIG_KEY,
-    GIT_KS_STR,
-    GIT_KS_KEYS_BASE_BRANCH,
-    REPO_CONF_BRANCH,
+    APPROVED_STR,
     CAPS_KEYSERVER_STR,
+    DENIED_STR,
+    GIT_KS_DIR,
+    GIT_KS_DIR_CONFIG_KEY,
+    GIT_KS_KEYS_BASE_BRANCH,
+    GIT_KS_STR,
+    KEY_STAGE_STRS,
+    KEYSERVER_APPROVERS_F_NAME,
     KEYSERVER_BRANCH_F_NAME,
+    OWNERS_KEYS_BRANCH,
+    OWNERS_PROMOTE_BRANCH,
+    REPO_CONF_BRANCH,
+    REQUESTS_STR,
 )
 from gitks.core.impl import (
-    WorkTreeGitKeyServerImpl,
     BaseDirWorkTreeGenerator,
     WorkTreeGenerator,
+    WorkTreeGitKeyServerImpl,
 )
 from gitks.core.utils import is_git_repo
 
@@ -61,16 +65,16 @@ class TestSimpleInit:
             ).stdout.strip()
         )
 
-    @pytest.mark.parametrize("keys_branch", ["test", "final"])
+    @pytest.mark.parametrize("keys_branch", list(KEY_STAGE_STRS))
     def test_sets_keys_worktree(self, repo_local, worktree_for_test, keys_branch):
-        git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
+        _git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
         assert f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}" in worktree_details
 
-    @pytest.mark.parametrize("keys_branch", ["test", "final"])
+    @pytest.mark.parametrize("keys_branch", list(KEY_STAGE_STRS))
     def test_sets_keys_worktree_in_base_dir(
         self, repo_local, worktree_for_test, keys_branch
     ):
-        git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
+        _git, worktree_details = self._sets_keys_worktree(repo_local, worktree_for_test)
         assert worktree_details[f"refs/heads/{GIT_KS_KEYS_BASE_BRANCH}/{keys_branch}"][
             0
         ].is_relative_to(Path(repo_local).parent)
@@ -86,7 +90,7 @@ class TestSimpleInit:
             .stdout.strip()
             .split("\0")
         )
-        worktree_details: dict[str, tuple[Path, str]] = dict()
+        worktree_details: dict[str, tuple[Path, str]] = {}
         i = 0
         while i < len(worktree_details_lst):
             if worktree_details_lst[i].strip() == "":
@@ -150,8 +154,8 @@ def test_presence_of_main_branch_does_not_affect_gitks_dir_creation(
     test_presence_of_main_branch_does_not_not_matter(
         repo_local, worktree_for_test, main_branch
     )
-    assert Path(repo_local, GIT_KS_DIR, TEST_STR).exists()
-    assert Path(repo_local, GIT_KS_DIR, FINAL_STR).exists()
+    for stage in KEY_STAGE_STRS:
+        assert Path(repo_local, GIT_KS_DIR, stage).exists()
 
 
 @pytest.mark.parametrize("main_branch", [True, False])
@@ -162,11 +166,15 @@ def test_presence_of_main_branch_does_not_affect_gitks_branch_creation(
         repo_local, worktree_for_test, main_branch
     )
     git = SimpleGitCommand(repo_local)
+    for stage in KEY_STAGE_STRS:
+        assert git.subcmd_unchecked.run(
+            ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{stage}"], text=True
+        ).stdout.strip()
     assert git.subcmd_unchecked.run(
-        ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{TEST_STR}"], text=True
+        ["branch", "--list", OWNERS_KEYS_BRANCH], text=True
     ).stdout.strip()
     assert git.subcmd_unchecked.run(
-        ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{FINAL_STR}"], text=True
+        ["branch", "--list", OWNERS_PROMOTE_BRANCH], text=True
     ).stdout.strip()
 
 
@@ -238,6 +246,12 @@ def test_registration_even_if_defaults_are_used(repo_local, worktree_for_test):
             ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
         ).stdout.strip()
     )
+    assert (
+        git.subcmd_unchecked.run(
+            ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_APPROVERS_F_NAME}"], text=True
+        ).stdout.strip()
+        == ""
+    )
 
 
 @pytest.mark.parametrize(
@@ -250,29 +264,40 @@ class TestBranchCreations:
         git, ks = self._prep_branch(repo_local, worktree_for_test)
         git.subcmd_unchecked.run(["branch", keys_branch])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
 
-    def test_errs_if_keys_test_branch_already_exists(
+    def test_errs_if_keys_requests_branch_already_exists(
         self, repo_local, keys_branch, worktree_for_test
     ):
         git, ks = self._prep_branch(repo_local, worktree_for_test)
-        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{TEST_STR}"])
+        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{REQUESTS_STR}"])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
 
-    def test_errs_if_keys_final_branch_already_exists(
+    def test_errs_if_keys_approved_branch_already_exists(
         self, repo_local, keys_branch, worktree_for_test
     ):
         git, ks = self._prep_branch(repo_local, worktree_for_test)
-        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{FINAL_STR}"])
+        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{APPROVED_STR}"])
         with pytest.raises(
-            GitKsException,
+            GitKsExitingException,
+            match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
+        ):
+            ks.init(keys_base_branch=keys_branch)
+
+    def test_errs_if_keys_denied_branch_already_exists(
+        self, repo_local, keys_branch, worktree_for_test
+    ):
+        git, ks = self._prep_branch(repo_local, worktree_for_test)
+        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{DENIED_STR}"])
+        with pytest.raises(
+            GitKsExitingException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
         ):
             ks.init(keys_base_branch=keys_branch)
