@@ -7,6 +7,10 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from pprint import pp
+
+import gnupg
+from gitbolt import get_git
 
 from gitks.core.base import GitKeyServer, GitKeyServerClient
 from gitks.core.factory import git_key_server, git_key_server_client
@@ -51,6 +55,18 @@ def cmd_clone(
     return 0 if result.connected else 1
 
 
+def cmd_list_keys(args: list[str] | None = None) -> int:
+    """List GPG keys and git version (key-validation branch)."""
+    if args is None:
+        args = []
+    print(args)
+    gpg = gnupg.GPG()
+    pp(gpg.list_keys())
+    git = get_git()
+    print(git.version)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gitks",
@@ -75,6 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Parent directory to clone into (default: cwd).",
     )
 
+    sub.add_parser("list-keys", help="List GPG keys and print git version.")
+
     return parser
 
 
@@ -86,6 +104,8 @@ def main_cli(args: list[str] | None = None) -> int:
         return cmd_init(ns.dir, ns.user_name, ns.user_email)
     if ns.command == "clone":
         return cmd_clone(ns.url, ns.dir)
+    if ns.command == "list-keys":
+        return cmd_list_keys(args[1:])
     parser.error(f"unknown command {ns.command}")
 
 

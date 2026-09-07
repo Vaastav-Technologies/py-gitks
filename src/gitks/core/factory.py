@@ -12,10 +12,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from gitks.core.base import GitKeyServer, GitKeyServerClient, KeyValidator
+from gitks.core.base import GitKeyServer, GitKeyServerClient
 from gitks.core.constants import GITKS_WORKTREES_DIR_STR
-from gitks.core.gpg import GpgKeyValidator
-from gitks.core.importing import KeyImporter
 
 if TYPE_CHECKING:
     from gitks.core.impl import WorkTreeGenerator, WorkTreeGitKeyServerImpl
@@ -34,8 +32,6 @@ def _build_worktree_gitks(
     worktree_generator: WorkTreeGenerator | None = None,
     worktrees_parent: Path | None = None,
     clone_base_dir: Path | None = None,
-    key_validator: KeyValidator | None = None,
-    key_importer: KeyImporter | None = None,
 ) -> WorkTreeGitKeyServerImpl:
     from gitks.core.impl import BaseDirWorkTreeGenerator, WorkTreeGitKeyServerImpl
 
@@ -43,13 +39,11 @@ def _build_worktree_gitks(
         worktrees_dir(worktrees_parent or Path(repo_root_dir).parent)
     )
     return WorkTreeGitKeyServerImpl(
-        key_validator or GpgKeyValidator(),
         Path(repo_root_dir),
         user_name=user_name,
         user_email=user_email,
         worktree_generator=generator,
-        clone_base_dir=clone_base_dir,
-        key_importer=key_importer,
+        clone_base_dir=clone_base_dir or Path.home(),
     )
 
 
@@ -61,8 +55,6 @@ def git_key_server(
     worktree_generator: WorkTreeGenerator | None = None,
     worktrees_parent: Path | None = None,
     clone_base_dir: Path | None = None,
-    key_validator: KeyValidator | None = None,
-    key_importer: KeyImporter | None = None,
 ) -> GitKeyServer:
     """
     Default ``GitKeyServer`` (worktree-backed).
@@ -77,8 +69,6 @@ def git_key_server(
         worktree_generator=worktree_generator,
         worktrees_parent=worktrees_parent,
         clone_base_dir=clone_base_dir,
-        key_validator=key_validator,
-        key_importer=key_importer,
     )
 
 
@@ -90,8 +80,6 @@ def git_key_server_client(
     worktree_generator: WorkTreeGenerator | None = None,
     worktrees_parent: Path | None = None,
     clone_base_dir: Path | None = None,
-    key_validator: KeyValidator | None = None,
-    key_importer: KeyImporter | None = None,
 ) -> GitKeyServerClient:
     """
     Default ``GitKeyServerClient`` (worktree-backed).
@@ -105,6 +93,4 @@ def git_key_server_client(
         worktree_generator=worktree_generator,
         worktrees_parent=worktrees_parent,
         clone_base_dir=clone_base_dir,
-        key_validator=key_validator,
-        key_importer=key_importer,
     )

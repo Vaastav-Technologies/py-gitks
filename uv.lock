@@ -275,7 +275,7 @@ typecheck = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gitbolt", specifier = ">=0.0.0.dev11" },
+    { name = "gitbolt", specifier = ">=0.0.0.dev25" },
     { name = "logician", specifier = ">=0.0.0.dev9" },
     { name = "python-gnupg" },
     { name = "vt-commons", specifier = ">=0.0.1.dev9" },

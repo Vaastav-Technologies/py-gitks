@@ -15,6 +15,7 @@ def test_cli_help_lists_init_and_clone():
     text = build_parser().format_help()
     assert "init" in text
     assert "clone" in text
+    assert "list-keys" in text
 
 
 def test_cli_requires_subcommand():
