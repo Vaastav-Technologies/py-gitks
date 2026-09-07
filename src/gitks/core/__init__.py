@@ -23,6 +23,8 @@ from gitks.core.errors import GitKsExitingException as GitKsExitingException
 from gitks.core.errors import KeyServerException as KeyServerException
 
 # endregion
+from gitks.core.factory import git_key_server as git_key_server
+from gitks.core.factory import git_key_server_client as git_key_server_client
 from gitks.core.gpg import GpgKeyValidator as GpgKeyValidator
 from gitks.core.importing import DeferredKeyImporter as DeferredKeyImporter
 from gitks.core.importing import KeyImporter as KeyImporter
