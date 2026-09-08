@@ -22,3 +22,9 @@ class GitKsException(KeyServerException):
     """
 
     pass
+
+class KeyNotPendingError(GitKsException):
+    """approve/deny when the key is not in requests."""
+
+class KeySignatureError(GitKsException):
+    """detached signature does not match the public key."""

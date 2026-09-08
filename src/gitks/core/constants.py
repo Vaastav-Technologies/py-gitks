@@ -42,6 +42,9 @@ FINAL_STR = "final"
 """
 Finalised keys will be stored in this home directory and branch.
 """
+REQUESTS_STR = TEST_STR   # pending = existing "test" branch/dir
+APPROVED_STR = FINAL_STR  # published = existing "final" branch/dir
+DENIED_STR = "denied"
 
 URL_STR = "url"
 CAPS_URL_STR = URL_STR.upper()

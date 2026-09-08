@@ -15,6 +15,7 @@ from vt.utils.commons.commons.core_py.base import Sentinel
 
 # region key upload models
 class KeyUploadStatus(Enum):
+    PENDING = "pending"
     SUCCESS = "success"
     ALREADY_EXISTS = "already_exists"
     INVALID_KEY = "invalid"
@@ -27,7 +28,27 @@ class KeyUploadResult:
     message: str | None = None
     server_id: str | None = None  # e.g., Git commit hash or keyserver fingerprint
 
+class KeyReviewStatus(Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    DENIED = "denied"
+    INVALID_SIGNATURE = "invalid_signature"
+    NOT_FOUND = "not_found"
+    ERROR = "error"
 
+@dataclass
+class KeyReviewResult:
+    status: KeyReviewStatus
+    key_id: str
+    message: str | None = None
+    server_id: str | None = None
+    reason: str | None = None
+
+@dataclass
+class PendingKey:
+    key_id: str
+    public_key: str
+    requester_signature: str
 # endregion
 
 

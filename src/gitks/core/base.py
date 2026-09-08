@@ -16,6 +16,8 @@ from gitks.core.model import (
     KeyUploadResult,
     KeyData,
     KeyDeleteResult,
+    PendingKey,
+    KeyReviewResult,
     KeyServerConnectResult,
     GitKSCloneResult,
     GitSelf,
@@ -58,13 +60,22 @@ class KeySender(HasKeyValidator, Protocol):
     """
 
     @abstractmethod
-    def send_key(self, public_key: bytes | str) -> KeyUploadResult:
+    def send_key(
+        self, public_key: bytes | str, signature: str | None = None
+    ) -> KeyUploadResult:
         """
-        Send key to a keyserver.
+        Submit a public key to the keyserver as a **pending request**.
 
-        :param public_key: the public key data to be sent to the keyserver.
-        :return: ``KeyUploadResult`` with extensive context on key's upload status.
-        :raise ValueError: If key fails using the rules defined by the key validator.
+        The key is stored in the requests (pending) area only. It is not
+        published to approved keys. An owner must call ``approve_key``
+        before others should trust or import it.
+
+        :param public_key: public key material to submit.
+        :param signature: optional detached signature of ``public_key``. If
+            omitted, a signature is created from the secret key in the
+            requests GPG home (when present).
+        :return: ``KeyUploadResult`` (typically ``PENDING`` if queued).
+        :raise ValueError: If the key fails the key validator or signing fails.
         :raise SyntaxError: If key data is malformed.
         """
         ...
@@ -117,6 +128,10 @@ class KeyDeleter(Protocol):
         :return:
         """
         ...
+class KeyReviewer(Protocol):
+    def list_pending_keys(self) -> list[PendingKey]: ...
+    def approve_key(self, key_id: str) -> KeyReviewResult: ...
+    def deny_key(self, key_id: str, reason: str) -> KeyReviewResult: ...
 
 
 class KeyServer(Protocol):
@@ -149,7 +164,7 @@ class KeyServerClient(KeySender, KeyReceiver, KeySearcher, KeyDeleter, Protocol)
         ...
 
 
-class GitKeyServer(KeyServer, RootDirOp, Protocol):
+class GitKeyServer(KeyServer, KeyReviewer, RootDirOp, Protocol):
     """
     Interface for git keyserver.
     """

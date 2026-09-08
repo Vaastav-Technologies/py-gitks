@@ -61,3 +61,43 @@ def is_git_repo(path: Path) -> bool:
         return True
     except subprocess.CalledProcessError:
         return False
+
+
+def index_filename(value: str) -> str:
+    """
+    Safe single path segment for name/email index files.
+
+    >>> index_filename('Alice Example')
+    'Alice_Example'
+    >>> index_filename('alice@example.com')
+    'alice@example.com'
+    """
+    return "".join(c if c.isalnum() or c in "._@+-" else "_" for c in value)
+
+
+def index_user_name(worktree: Path, user_name: str, key_id: str) -> Path | None:
+    """
+    Write ``key_id`` under ``worktree/index/names/`` keyed by ``user_name``.
+
+    :return: path written, or ``None`` if ``user_name`` is empty.
+    """
+    if not user_name:
+        return None
+    path = worktree / "index" / "names" / index_filename(user_name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(key_id, encoding="utf-8")
+    return path
+
+
+def index_user_email(worktree: Path, user_email: str, key_id: str) -> Path | None:
+    """
+    Write ``key_id`` under ``worktree/index/emails/`` keyed by ``user_email``.
+
+    Must be called with the email, not the display name.
+    """
+    if not user_email:
+        return None
+    path = worktree / "index" / "emails" / index_filename(user_email)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(key_id, encoding="utf-8")
+    return path

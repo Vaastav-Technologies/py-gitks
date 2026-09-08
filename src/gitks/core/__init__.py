@@ -14,6 +14,7 @@ from gitks.core.base import KeySearcher as KeySearcher
 from gitks.core.base import KeyDeleter as KeyDeleter
 from gitks.core.base import KeyServer as KeyServer
 from gitks.core.base import GitKeyServer as GitKeyServer
+from gitks.core.base import KeyReviewer as KeyReviewer
 # endregion
 
 
@@ -23,10 +24,15 @@ from gitks.core.model import KeyUploadResult as KeyUploadResult
 from gitks.core.model import KeyDeleteStatus as KeyDeleteStatus
 from gitks.core.model import KeyDeleteResult as KeyDeleteResult
 from gitks.core.model import KeyData as KeyData
+from gitks.core.model import KeyReviewStatus as KeyReviewStatus
+from gitks.core.model import KeyReviewResult as KeyReviewResult
+from gitks.core.model import PendingKey as PendingKey
 # endregion
 
 
 # region gitks.core.errors re-exports
 from gitks.core.errors import KeyServerException as KeyServerException
 from gitks.core.errors import GitKsException as GitKsException
+from gitks.core.errors import KeyNotPendingError as KeyNotPendingError
+from gitks.core.errors import KeySignatureError as KeySignatureError
 # endregion
