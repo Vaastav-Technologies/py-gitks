@@ -16,6 +16,7 @@ from subprocess import CalledProcessError
 from typing import override, Protocol, overload
 
 from gitbolt.subprocess.base import GitCommand
+from gitbolt.subprocess.exceptions import GitCmdException
 from gitbolt.subprocess.impl.simple import SimpleGitCommand
 from logician.configurators.env import LgcnEnvListLC
 from logician.stdlog.configurator import StdLoggerConfigurator
@@ -31,6 +32,7 @@ from gitks.core.constants import (
     GIT_KS_BRANCH_CONFIG_KEY,
     GIT_KS_DIR_CONFIG_KEY,
     GIT_KS_VALIDATOR_CONFIG_KEY,
+    DEFAULT_KEY_VALIDATOR,
     GIT_KS_STR,
     REPO_CONF_BRANCH,
     SELF_REPO,
@@ -42,40 +44,39 @@ from gitks.core.constants import (
 from gitks.core.errors import GitKsException
 from gitks.core.model import (
     KeyDeleteResult,
+    KeyDeleteStatus,
     KeyData,
     KeyUploadResult,
+    KeyUploadStatus,
     KeyServerConnectResult,
     GitSelf,
     GitKSCloneResult,
 )
 from gitks.core.utils import extract_repo_name, is_git_repo
-from gitks.core.gpg_validator import GPGKeyValidator
+from gitks.core.gpg_validator import key_validator_for_name
 
 _base_logger = logging.getLogger(__name__)
 logger = LgcnEnvListLC(["GITKS_LOG"], StdLoggerConfigurator()).configure(_base_logger)
+
 
 def get_git_config_ks(git: GitCommand) -> KeyValidator:
     """
     Get the configured key validator for this repository.
     """
-
-    key_result = git.subcmd_unchecked().run(
-        [
-            "config",
-            "--local",
-            "--get",
-            GIT_KS_VALIDATOR_CONFIG_KEY,
-        ]
-    )
+    try:
+        key_result = git.subcmd_unchecked().run(
+            [
+                "config",
+                "--local",
+                "--get",
+                GIT_KS_VALIDATOR_CONFIG_KEY,
+            ]
+        )
+    except GitCmdException:
+        return key_validator_for_name(DEFAULT_KEY_VALIDATOR)
 
     validator_name = key_result.stdout.decode("utf-8").strip().lower()
-
-    if validator_name == "gpg":
-        return GPGKeyValidator()
-
-    raise ValueError(
-        f"Unsupported key validator: {validator_name}"
-    )
+    return key_validator_for_name(validator_name)
 
 
 class WorkTreeGenerator(Protocol):
@@ -150,7 +151,7 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
                 cmd_to_run += ["--orphan"]
             cmd_to_run += ["-b", branch]
             logger.debug(f"cmd_to_run: {cmd_to_run}")
-            git.subcmd_unchecked.run(cmd_to_run)
+            git.subcmd_unchecked().run(cmd_to_run)
             logger.debug(f"worktree created for branch {branch} at path: {branch_dir}")
             if orphan:
                 commit_cmd_to_run = [
@@ -159,7 +160,7 @@ class BaseDirWorkTreeGenerator(WorkTreeGenerator, RootDirOp):
                     f"initial commit for branch: {branch}",
                     "--allow-empty",
                 ]
-                git.git_opts_override(C=[branch_dir]).subcmd_unchecked.run(
+                git.git_opts_override(C=[branch_dir]).subcmd_unchecked().run(
                     commit_cmd_to_run
                 )
                 logger.debug(
@@ -229,21 +230,29 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         self,
         keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH,
         git_ks_dir: Path = GIT_KS_DIR,
+        validator: str = DEFAULT_KEY_VALIDATOR,
     ) -> None:
         logger.trace("Entering")
         logger.debug(f"git_ks_dir: {git_ks_dir}")
         logger.debug(f"key_base_branch: {keys_base_branch}")
+        validator_name = validator.strip().lower()
 
         logger.debug(f"Initialising git repo in {self.root_dir}")
-        self.git.subcmd_unchecked.run(["init"])
+        self.git.subcmd_unchecked().run(["init"])
+        self.git.subcmd_unchecked().run(
+            ["config", "--local", GIT_KS_VALIDATOR_CONFIG_KEY, validator_name]
+        )
+        self._key_validator = key_validator_for_name(validator_name)
         logger.info(f"Initialised git repo in {self.root_dir}")
 
         self.set_local_user_info()
 
         logger.debug("Checking if supplied keys base branch exists already.")
-        existing_branches = self.git.subcmd_unchecked.run(
-            ["branch", "--list", f"{keys_base_branch}*"], text=True
-        ).stdout.split()
+        existing_branches = (
+            self.git.subcmd_unchecked()
+            .run(["branch", "--list", f"{keys_base_branch}*"], text=True)
+            .stdout.split()
+        )
 
         keys_test_branch = f"{keys_base_branch}/{TEST_STR}"
         keys_final_branch = f"{keys_base_branch}/{FINAL_STR}"
@@ -277,15 +286,17 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         )
         git_ks_final_dir.mkdir(parents=True)
         logger.info(f"Directory {git_ks_final_dir} created.")
-        self.git.subcmd_unchecked.run(
+        self.git.subcmd_unchecked().run(
             ["config", "--local", GIT_KS_DIR_CONFIG_KEY, str(git_ks_dir)]
         )
         logger.debug(f"Registered {GIT_KS_DIR_CONFIG_KEY}={str(git_ks_dir)}")
 
         logger.debug("Checking if repo configuration branch exists already.")
-        repo_conf_branch = self.git.subcmd_unchecked.run(
-            ["branch", "--list", REPO_CONF_BRANCH], text=True
-        ).stdout.strip()
+        repo_conf_branch = (
+            self.git.subcmd_unchecked()
+            .run(["branch", "--list", REPO_CONF_BRANCH], text=True)
+            .stdout.strip()
+        )
         if repo_conf_branch:
             logger.info(
                 f"Repo configuration branch '{REPO_CONF_BRANCH}' already exists."
@@ -318,18 +329,18 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             C=[repo_conf_worktree]
         )  # get special separate git for the
         # repo conf branch's worktree
-        repo_conf_worktree_git.add_subcmd.add(
+        repo_conf_worktree_git.add_subcmd().add(
             str(repo_conf_worktree_ks_file), str(repo_conf_worktree_ks_url_file)
         )
         logger.debug(
             f"`{repo_conf_worktree_ks_file}` and `{repo_conf_worktree_ks_url_file}` added to repo "
             "conf worktree."
         )
-        repo_conf_worktree_git.subcmd_unchecked.run(
+        repo_conf_worktree_git.subcmd_unchecked().run(
             ["commit", "-m", "git keyserver registered."]
         )
         logger.info("Central configuration saved.")
-        repo_conf_worktree_git.subcmd_unchecked.run(
+        repo_conf_worktree_git.subcmd_unchecked().run(
             ["config", "--local", GIT_KS_KEYSERVER_PATH_KEY, str(SELF_REPO)]
         )
         logger.info("Local configuration saved.")
@@ -341,11 +352,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug(
             f"Noted {keys_base_branch} as keys_base_branch in {repo_conf_worktree_ks_branch_file}"
         )
-        repo_conf_worktree_git.add_subcmd.add(str(repo_conf_worktree_ks_branch_file))
+        repo_conf_worktree_git.add_subcmd().add(str(repo_conf_worktree_ks_branch_file))
         logger.debug(
             f"Indexed {repo_conf_worktree_ks_branch_file} in worktree {repo_conf_worktree}"
         )
-        repo_conf_worktree_git.subcmd_unchecked.run(
+        repo_conf_worktree_git.subcmd_unchecked().run(
             ["commit", "-m", "git keyserver base branch"]
         )
         logger.debug(f"Registered {GIT_KS_BRANCH_CONFIG_KEY}={keys_base_branch}")
@@ -380,9 +391,11 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         """
         logger.trace("Entering")
         logger.debug(f"branch_name: {branch_name}")
-        worktree_str = self.git.subcmd_unchecked.run(
-            ["worktree", "list", "--porcelain", "-z"]
-        ).stdout.strip()
+        worktree_str = (
+            self.git.subcmd_unchecked()
+            .run(["worktree", "list", "--porcelain", "-z"])
+            .stdout.strip()
+        )
         # TODO: send a feature request to git to provide worktree with
         #  either a git worktree list --get <branch-pattern>
         #  or simplt git worktree list <branch-pattern>
@@ -412,14 +425,16 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
 
         if self.user_name:
             logger.debug("user.name supplied for setting.")
-            git.subcmd_unchecked.run(["config", "--local", "user.name", self.user_name])
+            git.subcmd_unchecked().run(
+                ["config", "--local", "user.name", self.user_name]
+            )
             logger.debug(f"Set local git.user.name: {self.user_name}")
             logger.info("Supplied user.name set locally.")
         else:
             logger.info("No user.name supplied for setting. Proceeding with default.")
         if self.user_email:
             logger.debug("user.email supplied for setting.")
-            git.subcmd_unchecked.run(
+            git.subcmd_unchecked().run(
                 ["config", "--local", "user.email", self.user_email]
             )
             logger.debug(f"Set local git.user.email: {self.user_email}")
@@ -496,12 +511,15 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 details=dict(status="OK", operation="NOOP"),
             )
         else:
-            base_dir = base_dir or self.clone_base_dir
-            logger.debug(f"computed base_dir: {base_dir}")
+            clone_parent = (
+                base_dir if isinstance(base_dir, Path) else self.clone_base_dir
+            )
+            clone_url = str(url)
+            logger.debug(f"computed base_dir: {clone_parent}")
             logger.info("Trying to clone the repo in desired base_dir.")
-            repo_name = extract_repo_name(url)
+            repo_name = extract_repo_name(clone_url)
             logger.debug(f"Extracted repo name: {repo_name}")
-            repo_dir = Path(base_dir, repo_name)
+            repo_dir = Path(clone_parent, repo_name)
             logger.debug(f"repo_dir: {repo_dir}")
             if is_git_repo(repo_dir):
                 message = f"Repo already cloned at {repo_dir}"
@@ -515,7 +533,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
                 )
             else:
                 logger.debug(f"Cloning the repo in repo_dir: {repo_dir}")
-                clone_cmd = ["git", "clone", str(url), str(repo_dir)]
+                clone_cmd = ["git", "clone", clone_url, str(repo_dir)]
                 logger.debug(f"Running: {clone_cmd}")
                 try:
                     completed_process = subprocess.run(
@@ -574,7 +592,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.debug("Testing public_key data for validity.")
         self.key_validator.validate_key(public_key)
         logger.info("Supplied public key is valid.")
-        gitks_conf_branch = self.git.subcmd_unchecked.run(
+        gitks_conf_branch = self.git.subcmd_unchecked().run(
             ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"]
         )
         logger.debug(f"gitks_conf_branch: {gitks_conf_branch}")
@@ -583,19 +601,17 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         final_gitks_conf_worktree = self.get_or_create_worktree(final_gitks_conf_branch)
         logger.debug(f"final_gitks_conf_worktree: {final_gitks_conf_worktree}")
         logger.debug(f"Getting configured {GIT_KS_DIR_CONFIG_KEY}")
-        git_ks_dir = self.git.subcmd_unchecked.run(
-            ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
-        ).stdout.strip()
-        git_ks_dir = Path(git_ks_dir) if git_ks_dir else None
-        logger.debug(f"Got Configured {GIT_KS_DIR_CONFIG_KEY}: {git_ks_dir}")
-        if not git_ks_dir:
-            logger.debug(f"No {GIT_KS_DIR_CONFIG_KEY} configured.")
-            git_ks_dir = GIT_KS_DIR
-            logger.debug(f"Setting {GIT_KS_DIR_CONFIG_KEY}={GIT_KS_DIR}")
+        git_ks_dir_cfg = (
+            self.git.subcmd_unchecked()
+            .run(["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True)
+            .stdout.strip()
+        )
+        git_ks_dir_rel = Path(git_ks_dir_cfg) if git_ks_dir_cfg else GIT_KS_DIR
+        logger.debug(f"Got Configured {GIT_KS_DIR_CONFIG_KEY}: {git_ks_dir_rel}")
         logger.debug("Getting gpg info.")
-        git_ks_dir = Path(self.repo_root_dir, git_ks_dir)
-        logger.debug(f"Full git_ks_dir: {git_ks_dir}")
-        final_gitks_dir = Path(git_ks_dir, FINAL_STR)
+        full_git_ks_dir = Path(self.repo_root_dir, git_ks_dir_rel)
+        logger.debug(f"Full git_ks_dir: {full_git_ks_dir}")
+        final_gitks_dir = Path(full_git_ks_dir, FINAL_STR)
         logger.debug(f"final_gitks_dir: {final_gitks_dir}")
         final_gitks_conf_git = self.git.git_opts_override(
             C=[final_gitks_conf_worktree]
@@ -616,7 +632,7 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
         logger.info("Indexed user name.")
         self.index_user_email(final_gitks_conf_worktree, key_user_name)
         logger.info("Indexed user email.")
-        final_gitks_conf_git.add_subcmd.add(key_file)
+        final_gitks_conf_git.add_subcmd().add(key_file)
         logger.debug("Indexed key_file.")
         final_gitks_git = self.git.git_envs_override(GNUPGHOME=final_gitks_dir)
         logger.debug(f"Obtained git instance for final_gitks_dir: {final_gitks_git}")
@@ -629,24 +645,48 @@ class WorkTreeGitKeyServerImpl(GitKeyServer, GitKeyServerClient, RootDirOp):
             f"-S{key_id}!",
         ]
         logger.debug(f"Running commit command: {commit_runcmd}")
-        final_gitks_conf_git.subcmd_unchecked.run(commit_runcmd)
+        final_gitks_conf_git.subcmd_unchecked().run(commit_runcmd)
         logger.info("Saved key in local db.")
-        final_gitks_conf_git.subcmd_unchecked.run(["push"])
+        final_gitks_conf_git.subcmd_unchecked().run(["push"])
         logger.info("Pushed to remote server.")
         logger.success("Successfully sent the key to remote server.")
         logger.trace("Exiting")
+        return KeyUploadResult(
+            status=KeyUploadStatus.SUCCESS,
+            message="key sent",
+            server_id=key_id,
+        )
+
+    def get_key_name_from_key_data(self, public_key: bytes | str) -> str:
+        raise NotImplementedError("send_key helpers are not implemented yet.")
+
+    def get_key_user_name(self, public_key: bytes | str) -> str:
+        raise NotImplementedError("send_key helpers are not implemented yet.")
+
+    def get_key_user_email(self, public_key: bytes | str) -> str:
+        raise NotImplementedError("send_key helpers are not implemented yet.")
+
+    def index_user_name(self, worktree: Path, user_name: str) -> None:
+        raise NotImplementedError("send_key helpers are not implemented yet.")
+
+    def index_user_email(self, worktree: Path, user_email: str) -> None:
+        raise NotImplementedError("send_key helpers are not implemented yet.")
 
     @override
     def receive_key(self, key_id: str) -> bytes | str:
-        pass
+        raise NotImplementedError("receive_key is not implemented yet.")
 
     @override
     def search_keys(self, key_search_str: str) -> list[KeyData]:
-        pass
+        raise NotImplementedError("search_keys is not implemented yet.")
 
     @override
     def delete_key(self, key_id: str) -> KeyDeleteResult:
-        pass
+        return KeyDeleteResult(
+            status=KeyDeleteStatus.ERROR,
+            message="not implemented",
+            server_id=key_id,
+        )
 
     @override
     @property

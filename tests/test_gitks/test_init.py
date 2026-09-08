@@ -47,18 +47,18 @@ class TestSimpleInit:
         git, _, user_name = self.empty_repo_init_setup(repo_local, worktree_for_test)
         assert (
             user_name
-            == git.subcmd_unchecked.run(
-                ["config", "--local", "--get", "user.name"], text=True
-            ).stdout.strip()
+            == git.subcmd_unchecked()
+            .run(["config", "--local", "--get", "user.name"], text=True)
+            .stdout.strip()
         )
 
     def test_sets_supplied_user_email(self, repo_local, worktree_for_test):
         git, user_email, _ = self.empty_repo_init_setup(repo_local, worktree_for_test)
         assert (
             user_email
-            == git.subcmd_unchecked.run(
-                ["config", "--local", "--get", "user.email"], text=True
-            ).stdout.strip()
+            == git.subcmd_unchecked()
+            .run(["config", "--local", "--get", "user.email"], text=True)
+            .stdout.strip()
         )
 
     @pytest.mark.parametrize("keys_branch", ["test", "final"])
@@ -80,9 +80,8 @@ class TestSimpleInit:
     ) -> tuple[SimpleGitCommand, dict[str, tuple[Path, str]]]:
         git, _, _ = self.empty_repo_init_setup(repo_local, worktree_for_test)
         worktree_details_lst = (
-            git.subcmd_unchecked.run(
-                ["worktree", "list", "--porcelain", "-z"], text=True
-            )
+            git.subcmd_unchecked()
+            .run(["worktree", "list", "--porcelain", "-z"], text=True)
             .stdout.strip()
             .split("\0")
         )
@@ -132,12 +131,12 @@ def test_presence_of_main_branch_does_not_not_matter(
     )
     git = SimpleGitCommand(repo_local)
     if main_branch:
-        git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
-        git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
+        git.subcmd_unchecked().run(["config", "--local", "user.name", user_name])
+        git.subcmd_unchecked().run(["config", "--local", "user.email", user_email])
         a_file = Path(repo_local, "a-file")
         a_file.write_text("a-file")
-        git.add_subcmd.add(".")
-        git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
+        git.add_subcmd().add(".")
+        git.subcmd_unchecked().run(["commit", "-m", "added a-file"])
     ks.init()
 
 
@@ -160,12 +159,16 @@ def test_presence_of_main_branch_does_not_affect_gitks_branch_creation(
         repo_local, worktree_for_test, main_branch
     )
     git = SimpleGitCommand(repo_local)
-    assert git.subcmd_unchecked.run(
-        ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{TEST_STR}"], text=True
-    ).stdout.strip()
-    assert git.subcmd_unchecked.run(
-        ["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{FINAL_STR}"], text=True
-    ).stdout.strip()
+    assert (
+        git.subcmd_unchecked()
+        .run(["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{TEST_STR}"], text=True)
+        .stdout.strip()
+    )
+    assert (
+        git.subcmd_unchecked()
+        .run(["branch", "--list", f"{GIT_KS_KEYS_BASE_BRANCH}/{FINAL_STR}"], text=True)
+        .stdout.strip()
+    )
 
 
 def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test):
@@ -181,7 +184,7 @@ def test_registers_gitks_dir_if_different_supplied(repo_local, worktree_for_test
     ano_gitks_home = ano_gitks_home / "yo"
     ks.init(git_ks_dir=ano_gitks_home)
     git = SimpleGitCommand(repo_local)
-    assert git.subcmd_unchecked.run(
+    assert git.subcmd_unchecked().run(
         ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
     ).stdout.strip() == str(ano_gitks_home)
 
@@ -201,9 +204,9 @@ def test_centrally_registers_branch_name_if_different_supplied(
     ks.init(keys_base_branch=ano_gitks_branch)
     git = SimpleGitCommand(repo_local)
     assert (
-        git.subcmd_unchecked.run(
-            ["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"], text=True
-        ).stdout.strip()
+        git.subcmd_unchecked()
+        .run(["show", f"{REPO_CONF_BRANCH}:{KEYSERVER_BRANCH_F_NAME}"], text=True)
+        .stdout.strip()
         == ano_gitks_branch
     )
 
@@ -222,16 +225,16 @@ def test_registration_even_if_defaults_are_used(repo_local, worktree_for_test):
     # centrally registers branch info
     assert (
         GIT_KS_KEYS_BASE_BRANCH
-        == git.subcmd_unchecked.run(
-            ["show", f"{REPO_CONF_BRANCH}:KEYSERVER.BRANCH"], text=True
-        ).stdout.strip()
+        == git.subcmd_unchecked()
+        .run(["show", f"{REPO_CONF_BRANCH}:KEYSERVER.BRANCH"], text=True)
+        .stdout.strip()
     )
     # locally registers dir info
     assert (
         str(GIT_KS_DIR)
-        == git.subcmd_unchecked.run(
-            ["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True
-        ).stdout.strip()
+        == git.subcmd_unchecked()
+        .run(["config", "--local", "--get", GIT_KS_DIR_CONFIG_KEY], text=True)
+        .stdout.strip()
     )
 
 
@@ -243,7 +246,7 @@ class TestBranchCreations:
         self, repo_local, keys_branch, worktree_for_test
     ):
         git, ks = self._prep_branch(repo_local, worktree_for_test)
-        git.subcmd_unchecked.run(["branch", keys_branch])
+        git.subcmd_unchecked().run(["branch", keys_branch])
         with pytest.raises(
             GitKsException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
@@ -254,7 +257,7 @@ class TestBranchCreations:
         self, repo_local, keys_branch, worktree_for_test
     ):
         git, ks = self._prep_branch(repo_local, worktree_for_test)
-        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{TEST_STR}"])
+        git.subcmd_unchecked().run(["branch", f"{keys_branch}/{TEST_STR}"])
         with pytest.raises(
             GitKsException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
@@ -265,7 +268,7 @@ class TestBranchCreations:
         self, repo_local, keys_branch, worktree_for_test
     ):
         git, ks = self._prep_branch(repo_local, worktree_for_test)
-        git.subcmd_unchecked.run(["branch", f"{keys_branch}/{FINAL_STR}"])
+        git.subcmd_unchecked().run(["branch", f"{keys_branch}/{FINAL_STR}"])
         with pytest.raises(
             GitKsException,
             match=f"Requested keys base branch {keys_branch} already exists. Rerun with a different branch name.",
@@ -283,12 +286,12 @@ class TestBranchCreations:
             worktree_generator=worktree_for_test,
         )
         git = SimpleGitCommand(repo_local)
-        git.subcmd_unchecked.run(["config", "--local", "user.name", user_name])
-        git.subcmd_unchecked.run(["config", "--local", "user.email", user_email])
+        git.subcmd_unchecked().run(["config", "--local", "user.name", user_name])
+        git.subcmd_unchecked().run(["config", "--local", "user.email", user_email])
         a_file = Path(repo_local, "a-file")
         a_file.write_text("a-file")
-        git.add_subcmd.add(".")
-        git.subcmd_unchecked.run(["commit", "-m", "added a-file"])
+        git.add_subcmd().add(".")
+        git.subcmd_unchecked().run(["commit", "-m", "added a-file"])
         return git, ks
 
 
@@ -304,9 +307,8 @@ def test_register_gitks_as_keyserver_on_success(repo_local, worktree_for_test):
     ks.init()
     git = SimpleGitCommand(repo_local)
     assert (
-        git.subcmd_unchecked.run(
-            ["show", f"{REPO_CONF_BRANCH}:{CAPS_KEYSERVER_STR}"], text=True
-        ).stdout.strip()
+        git.subcmd_unchecked()
+        .run(["show", f"{REPO_CONF_BRANCH}:{CAPS_KEYSERVER_STR}"], text=True)
+        .stdout.strip()
         == GIT_KS_STR
     )
-

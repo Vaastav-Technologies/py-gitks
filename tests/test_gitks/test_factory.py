@@ -24,7 +24,9 @@ def test_git_key_server_returns_worktree_implementation(mock_validator, tmp_path
 
 
 @patch("gitks.core.impl.get_git_config_ks", return_value=GPGKeyValidator())
-def test_git_key_server_client_returns_worktree_implementation(mock_validator, tmp_path):
+def test_git_key_server_client_returns_worktree_implementation(
+    mock_validator, tmp_path
+):
     repo = tmp_path / "repo"
     client = git_key_server_client(
         repo,

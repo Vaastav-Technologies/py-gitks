@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 
 from gitks.cli.__main__ import build_parser, cmd_clone, cmd_init
-from gitks.core.constants import GIT_KS_DIR, GIT_KS_KEYS_BASE_BRANCH
+from gitks.core.constants import (
+    DEFAULT_KEY_VALIDATOR,
+    GIT_KS_DIR,
+    GIT_KS_KEYS_BASE_BRANCH,
+)
 from gitks.core.model import GitKSCloneResult
 
 
@@ -39,6 +43,17 @@ def test_cli_init_args():
     assert ns.dir == "repo"
     assert ns.user_name == "cli"
     assert ns.user_email == "cli@example.test"
+    assert ns.validator == DEFAULT_KEY_VALIDATOR
+
+
+def test_cli_init_validator_arg():
+    ns = build_parser().parse_args(["init", "--validator", "gpg"])
+    assert ns.validator == "gpg"
+
+
+def test_cli_init_validator_defaults_to_gpg():
+    ns = build_parser().parse_args(["init"])
+    assert ns.validator == DEFAULT_KEY_VALIDATOR
 
 
 def test_cli_clone_args():
@@ -59,10 +74,13 @@ class _FakeGitKeyServer:
         self,
         keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH,
         git_ks_dir: Path = GIT_KS_DIR,
+        validator: str = DEFAULT_KEY_VALIDATOR,
+        **kwargs,
     ) -> None:
         self.init_called = True
         self.keys_base_branch = keys_base_branch
         self.git_ks_dir = git_ks_dir
+        self.validator = validator
 
 
 class _FakeGitKeyServerClient:
@@ -75,6 +93,13 @@ class _FakeGitKeyServerClient:
         self.clone_url = url
         self.clone_base_dir = base_dir
         return self.result
+
+
+def test_cmd_init_passes_validator_to_key_server(tmp_path):
+    repo = (tmp_path / "ks").resolve()
+    fake = _FakeGitKeyServer(repo)
+    assert cmd_init(str(repo), validator="gpg", key_server=fake) == 0
+    assert fake.validator == "gpg"
 
 
 def test_cmd_init_uses_git_key_server_interface(tmp_path, capsys):

@@ -13,6 +13,7 @@ import gnupg
 from gitbolt import get_git
 
 from gitks.core.base import GitKeyServer, GitKeyServerClient
+from gitks.core.constants import DEFAULT_KEY_VALIDATOR
 from gitks.core.factory import git_key_server, git_key_server_client
 from gitks.core.model import GitKSCloneResult
 
@@ -21,6 +22,7 @@ def cmd_init(
     repo_dir: str,
     user_name: str | None = None,
     user_email: str | None = None,
+    validator: str = DEFAULT_KEY_VALIDATOR,
     *,
     key_server: GitKeyServer | None = None,
 ) -> int:
@@ -31,7 +33,7 @@ def cmd_init(
         user_name=user_name,
         user_email=user_email,
     )
-    ks.init()
+    ks.init(validator=validator)
     print(f"Initialised gitks repo in {ks.root_dir}")
     return 0
 
@@ -82,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_p.add_argument("--user-name", default=None, help="git user.name")
     init_p.add_argument("--user-email", default=None, help="git user.email")
+    init_p.add_argument(
+        "--validator",
+        default=DEFAULT_KEY_VALIDATOR,
+        help=f"Key validator to register (default: {DEFAULT_KEY_VALIDATOR}).",
+    )
 
     clone_p = sub.add_parser("clone", help="Clone a gitks repo.")
     clone_p.add_argument("url", help="Git URL or path of the gitks repo.")
@@ -101,7 +108,7 @@ def main_cli(args: list[str] | None = None) -> int:
     args = args if args else sys.argv[1:]
     ns = parser.parse_args(args)
     if ns.command == "init":
-        return cmd_init(ns.dir, ns.user_name, ns.user_email)
+        return cmd_init(ns.dir, ns.user_name, ns.user_email, ns.validator)
     if ns.command == "clone":
         return cmd_clone(ns.url, ns.dir)
     if ns.command == "list-keys":

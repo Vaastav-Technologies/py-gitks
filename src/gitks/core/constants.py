@@ -59,6 +59,10 @@ GIT_KS_BRANCH_CONFIG_KEY = ".".join([GIT_KS_KEYS_CONFIG_KEY, BRANCH_STR])
 GIT_KS_DIR_CONFIG_KEY = ".".join([GIT_KS_KEYS_CONFIG_KEY, DIR_STR])
 VALIDATOR_STR = "validator"
 GIT_KS_VALIDATOR_CONFIG_KEY = ".".join([GIT_KS_STR, VALIDATOR_STR])
+DEFAULT_KEY_VALIDATOR = "gpg"
+"""
+Default key validator when the user does not pass ``--validator`` on init.
+"""
 
 ENC_STR = "enc"
 KEYSERVER_STR = "keyserver"

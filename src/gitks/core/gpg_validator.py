@@ -10,6 +10,8 @@ import tempfile
 import gnupg
 
 from gitks.core.base import KeyValidator
+from gitks.core.constants import DEFAULT_KEY_VALIDATOR
+
 
 class GPGKeyValidator(KeyValidator):
     """
@@ -43,12 +45,15 @@ class GPGKeyValidator(KeyValidator):
             result = gpg.import_keys(public_key)
 
             if result.sec_read > 0 or result.sec_imported > 0:
-                raise ValueError(
-                    "Private/secret keys are not allowed."
-                )
+                raise ValueError("Private/secret keys are not allowed.")
 
             if result.results:
-                raise SyntaxError(
-                    "The supplied key could not be processed by GPG."
-                )
-            
+                raise SyntaxError("The supplied key could not be processed by GPG.")
+
+
+def key_validator_for_name(validator_name: str) -> KeyValidator:
+    """Build a ``KeyValidator`` from a configured validator name."""
+    name = validator_name.strip().lower()
+    if name == DEFAULT_KEY_VALIDATOR:
+        return GPGKeyValidator()
+    raise ValueError(f"Unsupported key validator: {validator_name}")

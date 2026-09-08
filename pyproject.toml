@@ -42,8 +42,8 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "python-gnupg",
-    "logician >= 0.0.0.dev9",
-    "vt-commons >= 0.0.1.dev9",
+    "logician == 0.0.0.dev12",
+    "vt-commons == 0.0.1.dev11",
     "vt-err-hndlr >= 0.0.0.dev6",
     "gitbolt >= 0.0.0.dev25",
 ]
@@ -75,5 +75,6 @@ module = ["gnupg.*"]
 follow_untyped_imports = true
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 addopts = ["--doctest-modules", # Test all the doctests
     "--doctest-glob=*.md"] # Test doctests included as examples in the md files.

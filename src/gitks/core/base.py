@@ -11,7 +11,12 @@ from typing import Protocol, overload
 
 from vt.utils.commons.commons.op import RootDirOp
 
-from gitks.core.constants import GIT_KS_KEYS_BASE_BRANCH, GIT_KS_DIR, SELF_REPO
+from gitks.core.constants import (
+    DEFAULT_KEY_VALIDATOR,
+    GIT_KS_DIR,
+    GIT_KS_KEYS_BASE_BRANCH,
+    SELF_REPO,
+)
 from gitks.core.model import (
     KeyUploadResult,
     KeyData,
@@ -159,6 +164,7 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
         self,
         keys_base_branch: str = GIT_KS_KEYS_BASE_BRANCH,
         git_ks_dir: Path = GIT_KS_DIR,
+        validator: str = DEFAULT_KEY_VALIDATOR,
     ) -> None:
         """
         Initialise the gitks repo. Initialises:
@@ -168,6 +174,7 @@ class GitKeyServer(KeyServer, RootDirOp, Protocol):
 
         :param keys_base_branch: base branch name where keys will be stored.
         :param git_ks_dir: gitks root directory which will have keys offline. This is the path from repo root.
+        :param validator: key validator to register (for example ``gpg``). Defaults to ``gpg``.
         """
         ...
 
