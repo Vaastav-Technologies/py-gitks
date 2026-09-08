@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+# coding=utf-8
 
 """
 utility methods related to ``gitks``.
 """
 
 import os
-import subprocess
-from pathlib import Path
 from urllib.parse import urlparse
+from pathlib import Path
+import subprocess
 
 
 def extract_repo_name(repo_url: str) -> str:
@@ -28,7 +29,8 @@ def extract_repo_name(repo_url: str) -> str:
     # Handle both URLs and file paths
     path = urlparse(repo_url).path if "://" in repo_url else repo_url
     repo_name = os.path.basename(path)
-    repo_name = repo_name.removesuffix(".git")
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
     return repo_name
 
 

@@ -7,49 +7,64 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from pprint import pp
 
-from gitks.core.constants import GITKS_WORKTREES_DIR_STR
-from gitks.core.gpg import GpgKeyValidator
-from gitks.core.impl import BaseDirWorkTreeGenerator, WorkTreeGitKeyServerImpl
+import gnupg
+from gitbolt import get_git
+
+from gitks.core.base import GitKeyServer, GitKeyServerClient
+from gitks.core.factory import git_key_server, git_key_server_client
 from gitks.core.model import GitKSCloneResult
-
-
-def _worktrees_dir(parent: Path) -> Path:
-    return Path(parent).resolve() / GITKS_WORKTREES_DIR_STR
 
 
 def cmd_init(
     repo_dir: str,
     user_name: str | None = None,
     user_email: str | None = None,
+    *,
+    key_server: GitKeyServer | None = None,
 ) -> int:
     repo = Path(repo_dir).resolve()
     repo.mkdir(parents=True, exist_ok=True)
-    ks = WorkTreeGitKeyServerImpl(
-        GpgKeyValidator(),
+    ks: GitKeyServer = key_server or git_key_server(
         repo,
         user_name=user_name,
         user_email=user_email,
-        worktree_generator=BaseDirWorkTreeGenerator(_worktrees_dir(repo.parent)),
     )
     ks.init()
-    print(f"Initialised gitks repo in {repo}")
+    print(f"Initialised gitks repo in {ks.root_dir}")
     return 0
 
 
-def cmd_clone(url: str, dest_dir: str | None = None) -> int:
+def cmd_clone(
+    url: str,
+    dest_dir: str | None = None,
+    *,
+    key_server_client: GitKeyServerClient | None = None,
+) -> int:
     dest_parent = Path(dest_dir).resolve() if dest_dir else Path.cwd()
-    ks = WorkTreeGitKeyServerImpl(
-        GpgKeyValidator(),
+    ks: GitKeyServerClient = key_server_client or git_key_server_client(
         Path.cwd(),
         clone_base_dir=dest_parent,
-        worktree_generator=BaseDirWorkTreeGenerator(_worktrees_dir(dest_parent)),
+        worktrees_parent=dest_parent,
     )
     result: GitKSCloneResult = ks.clone(url=url, base_dir=dest_parent)
     print(result.message)
     if result.repo_path:
         print(str(result.repo_path))
     return 0 if result.connected else 1
+
+
+def cmd_list_keys(args: list[str] | None = None) -> int:
+    """List GPG keys and git version (key-validation branch)."""
+    if args is None:
+        args = []
+    print(args)
+    gpg = gnupg.GPG()
+    pp(gpg.list_keys())
+    git = get_git()
+    print(git.version)
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,6 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Parent directory to clone into (default: cwd).",
     )
 
+    sub.add_parser("list-keys", help="List GPG keys and print git version.")
+
     return parser
 
 
@@ -87,6 +104,8 @@ def main_cli(args: list[str] | None = None) -> int:
         return cmd_init(ns.dir, ns.user_name, ns.user_email)
     if ns.command == "clone":
         return cmd_clone(ns.url, ns.dir)
+    if ns.command == "list-keys":
+        return cmd_list_keys(args[1:])
     parser.error(f"unknown command {ns.command}")
 
 
